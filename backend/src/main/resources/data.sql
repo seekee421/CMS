@@ -55,7 +55,26 @@ SELECT 4, id FROM permission WHERE code IN (
 ON DUPLICATE KEY UPDATE permission_id = permission_id;
 
 -- Create initial admin user (password: admin123, encoded with BCrypt)
--- The password "admin123" when encoded with BCrypt typically starts with $2a$10$
--- For this example, we'll use a placeholder - in production, you should properly encode passwords
--- In a real application, you would use a password encoder
--- For now, we'll create a default admin user that can be updated later
+-- The password "admin123" when encoded with BCrypt: $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl.k5uKw4Ky
+INSERT INTO users (id, username, email, password, status) VALUES
+(1, 'admin', 'admin@cms.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl.k5uKw4Ky', 'ACTIVE')
+ON DUPLICATE KEY UPDATE email = VALUES(email), password = VALUES(password), status = VALUES(status);
+
+-- Assign admin role to admin user
+INSERT INTO user_role (user_id, role_id) VALUES
+(1, 1)
+ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
+
+-- Create test users for different roles
+INSERT INTO users (id, username, email, password, status) VALUES
+(2, 'subadmin', 'subadmin@cms.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl.k5uKw4Ky', 'ACTIVE'),
+(3, 'editor', 'editor@cms.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl.k5uKw4Ky', 'ACTIVE'),
+(4, 'user', 'user@cms.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl.k5uKw4Ky', 'ACTIVE')
+ON DUPLICATE KEY UPDATE email = VALUES(email), password = VALUES(password), status = VALUES(status);
+
+-- Assign roles to test users
+INSERT INTO user_role (user_id, role_id) VALUES
+(2, 2), -- subadmin
+(3, 3), -- editor
+(4, 4)  -- user
+ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);

@@ -70,3 +70,48 @@ CREATE TABLE IF NOT EXISTS comment (
     FOREIGN KEY (doc_id) REFERENCES document(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- 文档备份表
+CREATE TABLE IF NOT EXISTS document_backup (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_id BIGINT NOT NULL,
+    backup_version VARCHAR(50) NOT NULL,
+    title VARCHAR(255),
+    content LONGTEXT,
+    status VARCHAR(20),
+    is_public BOOLEAN,
+    created_by BIGINT,
+    original_created_at TIMESTAMP,
+    original_updated_at TIMESTAMP,
+    backup_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    backup_type VARCHAR(20) NOT NULL,
+    backup_reason VARCHAR(500),
+    file_path VARCHAR(1000),
+    file_size BIGINT,
+    checksum VARCHAR(64),
+    backup_status VARCHAR(20) DEFAULT 'PENDING',
+    INDEX idx_document_backup_doc_id (document_id),
+    INDEX idx_document_backup_version (document_id, backup_version),
+    INDEX idx_document_backup_created_at (backup_created_at),
+    INDEX idx_document_backup_status (backup_status),
+    FOREIGN KEY (document_id) REFERENCES document(id) ON DELETE CASCADE
+);
+
+-- 备份配置表
+CREATE TABLE IF NOT EXISTS backup_configuration (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    config_name VARCHAR(100) UNIQUE NOT NULL,
+    auto_backup_enabled BOOLEAN DEFAULT TRUE,
+    backup_interval_hours INT DEFAULT 24,
+    max_backup_versions INT DEFAULT 10,
+    backup_retention_days INT DEFAULT 30,
+    backup_storage_path VARCHAR(500),
+    compression_enabled BOOLEAN DEFAULT TRUE,
+    encryption_enabled BOOLEAN DEFAULT FALSE,
+    backup_on_update BOOLEAN DEFAULT TRUE,
+    backup_on_delete BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by BIGINT,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);

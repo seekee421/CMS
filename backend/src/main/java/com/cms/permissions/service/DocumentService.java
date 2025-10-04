@@ -23,7 +23,7 @@ public class DocumentService {
     @Autowired
     private PermissionCacheService permissionCacheService;
 
-    @PreAuthorize("hasAuthority('DOC:CREATE') OR hasPermission(#document, 'document', 'DOC:EDIT')")
+    @PreAuthorize("hasAuthority('DOC:CREATE') or hasPermission(#document, 'DOC:EDIT')")
     public Document createDocument(Document document, Long userId) {
         document.setCreatedBy(userId);
         Document savedDocument = documentRepository.save(document);

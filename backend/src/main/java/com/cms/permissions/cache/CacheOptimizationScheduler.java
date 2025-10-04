@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
  * 缓存优化调度器
  * 定期执行缓存优化任务
  */
-@Component
+//@Component  // 临时禁用以避免启动时的循环查询
 @ConditionalOnProperty(prefix = "cache.optimization", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class CacheOptimizationScheduler {
 

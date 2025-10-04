@@ -572,7 +572,7 @@ public class CacheWarmupStrategy {
     /**
      * 定期智能预热
      */
-    @Scheduled(fixedRate = 1800000) // 每30分钟执行一次
+    //@Scheduled(fixedRate = 1800000) // 每30分钟执行一次 - 临时禁用
     public void scheduledSmartWarmup() {
         if (!strategyEnabled) {
             return;
