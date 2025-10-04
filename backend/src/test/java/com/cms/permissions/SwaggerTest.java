@@ -1,13 +1,18 @@
 package com.cms.permissions;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-@SpringBootApplication
-@ComponentScan(basePackages = "com.cms.permissions")
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = CMSApplication.class)
+@ActiveProfiles("test")
 public class SwaggerTest {
-    public static void main(String[] args) {
-        SpringApplication.run(SwaggerTest.class, args);
+    
+    @Test
+    public void contextLoads() {
+        // 测试Spring上下文是否能正常加载
     }
 }

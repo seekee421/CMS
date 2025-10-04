@@ -90,12 +90,14 @@ CREATE TABLE IF NOT EXISTS document_backup (
     file_size BIGINT,
     checksum VARCHAR(64),
     backup_status VARCHAR(20) DEFAULT 'PENDING',
-    INDEX idx_document_backup_doc_id (document_id),
-    INDEX idx_document_backup_version (document_id, backup_version),
-    INDEX idx_document_backup_created_at (backup_created_at),
-    INDEX idx_document_backup_status (backup_status),
     FOREIGN KEY (document_id) REFERENCES document(id) ON DELETE CASCADE
 );
+
+-- 为document_backup表创建索引
+CREATE INDEX IF NOT EXISTS idx_document_backup_doc_id ON document_backup (document_id);
+CREATE INDEX IF NOT EXISTS idx_document_backup_version ON document_backup (document_id, backup_version);
+CREATE INDEX IF NOT EXISTS idx_document_backup_created_at ON document_backup (backup_created_at);
+CREATE INDEX IF NOT EXISTS idx_document_backup_status ON document_backup (backup_status);
 
 -- 备份配置表
 CREATE TABLE IF NOT EXISTS backup_configuration (

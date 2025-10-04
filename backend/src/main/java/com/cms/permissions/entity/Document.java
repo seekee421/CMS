@@ -38,6 +38,29 @@ public class Document {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // 文档迁移相关字段
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
+    @Column(name = "category", length = 100)
+    private String category;
+
+    @Column(name = "tags", columnDefinition = "JSON")
+    private String tags;
+
+    @Column(name = "version", length = 50)
+    private String version;
+
+    @Column(name = "original_id", length = 100)
+    private String originalId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "migration_status")
+    private MigrationStatus migrationStatus = MigrationStatus.PENDING;
+
+    @Column(name = "migration_date")
+    private LocalDateTime migrationDate;
+
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Comment> comments = new HashSet<>();
 
@@ -125,7 +148,68 @@ public class Document {
         this.comments = comments;
     }
 
+    // 迁移相关字段的getter和setter方法
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public void setSourceUrl(String sourceUrl) {
+        this.sourceUrl = sourceUrl;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
+    public String getOriginalId() {
+        return originalId;
+    }
+
+    public void setOriginalId(String originalId) {
+        this.originalId = originalId;
+    }
+
+    public MigrationStatus getMigrationStatus() {
+        return migrationStatus;
+    }
+
+    public void setMigrationStatus(MigrationStatus migrationStatus) {
+        this.migrationStatus = migrationStatus;
+    }
+
+    public LocalDateTime getMigrationDate() {
+        return migrationDate;
+    }
+
+    public void setMigrationDate(LocalDateTime migrationDate) {
+        this.migrationDate = migrationDate;
+    }
+
     public enum DocumentStatus {
         DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED
+    }
+
+    public enum MigrationStatus {
+        PENDING, IN_PROGRESS, COMPLETED, FAILED
     }
 }
