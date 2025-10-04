@@ -1,0 +1,122 @@
+# 缓存系统配置
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 2000ms
+      jedis:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+cache:
+  type: redis
+  ttl: 3600  # 默认TTL为1小时
+  allow-null-values: false
+  key-prefix: "cms:cache:"
+  
+  # 自定义缓存配置
+  permissions:
+    ttl: 1800  # 权限缓存30分钟
+    max-size: 10000
+    statistics: true
+    
+    # 性能监控配置
+    performance:
+      enabled: true
+      history-size: 1000
+      alert-thresholds:
+        hit-rate: 0.8
+        response-time: 100
+        eviction-rate: 0.1
+    
+    # 健康检查配置
+    health:
+      enabled: true
+      redis-timeout: 5000
+      performance-check: true
+      size-check: true
+      config-check: true
+      thresholds:
+        hit-rate: 0.7
+        response-time: 200
+        memory-usage: 0.9
+    
+    # 预热配置
+    warmup:
+      enabled: true
+      batch-size: 1000
+      timeout: 30000
+      
+    # 键定义
+    keys:
+      user-permissions: "cms:permissions:user:{userId}"
+      document-permissions: "cms:permissions:document:{documentId}"
+      user-document-assignments: "cms:assignments:user:{userId}"
+      document-public-status: "cms:public:document:{documentId}"
+      
+    # 计数器键
+    counters:
+      hit: "cms:stats:hit:{cacheType}"
+      miss: "cms:stats:miss:{cacheType}"
+      eviction: "cms:stats:eviction:{cacheType}"
+  
+  # 文档公开状态缓存
+  document-public-status:
+    ttl: 600  # 10分钟
+    max-size: 5000
+    statistics: true
+    
+  # 文档分配缓存
+  document-assignments:
+    ttl: 900  # 15分钟
+    max-size: 20000
+    statistics: true
+  
+  # 内存优化配置
+  optimization:
+    memory:
+      enabled: true
+      max-memory-usage: 0.8  # 最大内存使用率
+      cleanup-threshold: 0.9  # 清理触发阈值
+      batch-size: 1000  # 批处理大小
+      ttl-extension-factor: 1.5  # TTL延长因子
+      check-interval: 300000  # 检查间隔（5分钟）
+      
+    # 序列化优化
+    serialization:
+      compression: true
+      compression-threshold: 1024  # 压缩阈值（字节）
+      
+  # 预热策略配置
+  warmup:
+    strategy:
+      enabled: true
+      peak-hours: [9, 10, 11, 14, 15, 16]  # 高峰时段
+      min-hit-rate: 0.7  # 最小命中率
+      max-memory-usage: 0.8  # 最大内存使用率
+      batch-size: 500  # 批处理大小
+      access-pattern-window: 3600000  # 访问模式窗口（1小时）
+      
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,cache
+  endpoint:
+    health:
+      show-details: always
+    cache:
+      enabled: true
+
+# 日志配置
+logging:
+  level:
+    com.cms.cache: DEBUG
+    org.springframework.cache: INFO
+    org.springframework.data.redis: INFO

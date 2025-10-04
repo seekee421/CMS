@@ -1,0 +1,152 @@
+# Test configuration for cache system
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    database: 15  # Use separate database for tests
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+  
+  cache:
+    type: redis
+    redis:
+      time-to-live: 60000  # 1 minute for tests
+      cache-null-values: false
+      key-prefix: "test:cache:"
+      use-key-prefix: true
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+
+# Cache-specific configuration for tests
+cache:
+  permissions:
+    ttl: 5  # 5 seconds for fast testing
+    max-size: 1000
+    statistics: true
+    performance-monitoring: true
+    health-checks: true
+    warmup:
+      enabled: true
+      batch-size: 50
+    keys:
+      user-permissions: "test:permissions:user:{userId}"
+      document-permissions: "test:permissions:document:{userId}"
+      document-public: "test:public:document:{documentId}"
+    counters:
+      user-permissions-hits: "test:stats:user-permissions:hits"
+      user-permissions-misses: "test:stats:user-permissions:misses"
+      document-permissions-hits: "test:stats:document-permissions:hits"
+      document-permissions-misses: "test:stats:document-permissions:misses"
+      document-public-hits: "test:stats:document-public:hits"
+      document-public-misses: "test:stats:document-public:misses"
+
+  document-public:
+    ttl: 10  # 10 seconds for testing
+    max-size: 500
+    statistics: true
+    performance-monitoring: true
+    health-checks: true
+
+  document-assignments:
+    ttl: 3  # 3 seconds for testing
+    max-size: 2000
+    statistics: true
+    performance-monitoring: true
+    health-checks: true
+
+# Performance monitoring configuration
+performance:
+  monitoring:
+    enabled: true
+    history-size: 100
+    alert-thresholds:
+      hit-rate-warning: 0.7
+      hit-rate-critical: 0.5
+      response-time-warning: 50
+      response-time-critical: 100
+      eviction-rate-warning: 0.1
+      eviction-rate-critical: 0.2
+
+# Health check configuration
+health:
+  cache:
+    enabled: true
+    redis-timeout: 1000
+    performance-check: true
+    size-check: true
+    configuration-check: true
+    thresholds:
+      size-warning: 0.8
+      size-critical: 0.95
+      hit-rate-warning: 0.7
+      hit-rate-critical: 0.5
+
+# Logging configuration for tests
+logging:
+  level:
+    com.cms.permissions.cache: DEBUG
+    org.springframework.cache: DEBUG
+    org.springframework.data.redis: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints for testing
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,cache
+  endpoint:
+    health:
+      show-details: always
+    cache:
+      enabled: true
+
+# Security configuration for tests
+security:
+  cache:
+    api:
+      permissions:
+        read: CACHE:READ
+        manage: CACHE:MANAGE
+        config: CACHE:CONFIG
+    rate-limiting:
+      enabled: false  # Disable for tests
+      requests-per-minute: 1000
+      burst-capacity: 100
+
+# Test-specific settings
+test:
+  cache:
+    cleanup-after-test: true
+    performance-test:
+      thread-count: 10
+      operations-per-thread: 100
+      timeout-seconds: 30
+    stress-test:
+      duration-seconds: 10
+      thread-count: 20
+      operation-delay-ms: 1
+    warmup-test:
+      timeout-seconds: 30
+      batch-size: 50

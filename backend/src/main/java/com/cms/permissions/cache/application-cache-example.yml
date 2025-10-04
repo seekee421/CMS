@@ -1,0 +1,199 @@
+# 缓存系统配置示例
+# 将此配置添加到 application.yml 或 application.properties 中
+
+spring:
+  # Redis配置
+  redis:
+    host: localhost
+    port: 6379
+    password: # Redis密码（如果有）
+    timeout: 2000ms
+    database: 0
+    lettuce:
+      pool:
+        max-active: 8      # 连接池最大连接数
+        max-idle: 8        # 连接池最大空闲连接数
+        min-idle: 0        # 连接池最小空闲连接数
+        max-wait: -1ms     # 连接池最大阻塞等待时间
+      shutdown-timeout: 100ms
+
+  # 缓存配置
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000  # 默认TTL (10分钟)
+      cache-null-values: false
+      use-key-prefix: true
+      key-prefix: "cms:cache:"
+
+# 自定义缓存配置
+cache:
+  permission:
+    # 基础配置
+    ttl-minutes: 10           # 缓存TTL（分钟）
+    max-size: 10000          # 最大缓存条目数
+    enable-statistics: true   # 启用统计功能
+    
+    # 性能监控配置
+    performance:
+      enable-monitoring: true
+      history-retention-hours: 24    # 性能历史保留时间
+      alert-thresholds:
+        min-hit-rate: 0.8           # 最低命中率告警阈值
+        max-response-time: 100      # 最大响应时间告警阈值（毫秒）
+        max-memory-usage: 0.8       # 最大内存使用率告警阈值
+    
+    # 健康检查配置
+    health:
+      check-interval-seconds: 30    # 健康检查间隔
+      redis-timeout-ms: 1000       # Redis连接超时
+      performance-check-enabled: true
+      size-check-enabled: true
+      config-check-enabled: true
+    
+    # 预热配置
+    warmup:
+      enabled: true
+      on-startup: true             # 启动时预热
+      user-limit: 100             # 预热用户数量限制
+      document-limit: 50          # 预热文档数量限制
+      assignment-limit: 200       # 预热分配关系数量限制
+      parallel-threads: 4         # 并行预热线程数
+    
+    # 缓存键配置
+    keys:
+      user-permissions: "user:permissions:{username}"
+      user-document-permissions: "user:doc:permissions:{userId}:{documentId}"
+      document-public: "document:public:{documentId}"
+      
+    # 统计计数器键配置
+    counters:
+      user-permission-hits: "stats:user:permissions:hits"
+      user-permission-misses: "stats:user:permissions:misses"
+      document-assignment-hits: "stats:document:assignments:hits"
+      document-assignment-misses: "stats:document:assignments:misses"
+      document-public-hits: "stats:document:public:hits"
+      document-public-misses: "stats:document:public:misses"
+
+# 日志配置
+logging:
+  level:
+    com.cms.permissions.cache: DEBUG
+    org.springframework.cache: INFO
+    org.springframework.data.redis: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,cache
+  endpoint:
+    health:
+      show-details: always
+    cache:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    cache:
+      instrument: true
+
+# 安全配置示例
+security:
+  cache:
+    # API访问权限
+    permissions:
+      read: "CACHE:READ"
+      manage: "CACHE:MANAGE"
+      config: "CACHE:CONFIG"
+    
+    # API限流配置
+    rate-limit:
+      enabled: true
+      requests-per-minute: 100
+      burst-capacity: 20
+      
+# 生产环境配置示例
+---
+spring:
+  profiles: production
+  redis:
+    host: redis-cluster.example.com
+    port: 6379
+    password: ${REDIS_PASSWORD}
+    ssl: true
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+        min-idle: 5
+
+cache:
+  permission:
+    ttl-minutes: 15
+    max-size: 50000
+    performance:
+      history-retention-hours: 72
+    warmup:
+      user-limit: 500
+      document-limit: 200
+      assignment-limit: 1000
+      parallel-threads: 8
+
+logging:
+  level:
+    com.cms.permissions.cache: INFO
+    root: WARN
+
+---
+# 开发环境配置示例
+spring:
+  profiles: development
+  redis:
+    host: localhost
+    port: 6379
+
+cache:
+  permission:
+    ttl-minutes: 5
+    max-size: 1000
+    enable-statistics: true
+    performance:
+      enable-monitoring: true
+      history-retention-hours: 12
+    warmup:
+      enabled: false
+
+logging:
+  level:
+    com.cms.permissions.cache: DEBUG
+    org.springframework.cache: DEBUG
+
+---
+# 测试环境配置示例
+spring:
+  profiles: test
+  redis:
+    host: localhost
+    port: 6379
+    
+cache:
+  permission:
+    ttl-minutes: 1
+    max-size: 100
+    enable-statistics: false
+    performance:
+      enable-monitoring: false
+    warmup:
+      enabled: false
+    health:
+      check-interval-seconds: 10
+
+logging:
+  level:
+    com.cms.permissions.cache: WARN
