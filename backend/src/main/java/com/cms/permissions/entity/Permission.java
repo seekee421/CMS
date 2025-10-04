@@ -1,5 +1,6 @@
 package com.cms.permissions.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -17,6 +18,7 @@ public class Permission {
     private String description;
 
     @ManyToMany(mappedBy = "permissions", fetch = FetchType.LAZY)
+    @JsonBackReference
     private Set<Role> roles = new HashSet<>();
 
     // Constructors

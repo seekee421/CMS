@@ -1,5 +1,6 @@
 package com.cms.permissions.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 
 import java.util.HashSet;
@@ -23,6 +24,7 @@ public class Role {
         joinColumns = @JoinColumn(name = "role_id"),
         inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
+    @JsonManagedReference
     private Set<Permission> permissions = new HashSet<>();
 
     // Constructors

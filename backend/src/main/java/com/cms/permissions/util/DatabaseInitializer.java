@@ -85,9 +85,10 @@ public class DatabaseInitializer implements CommandLineRunner {
         Optional<Role> existingRole = roleRepository.findByName(roleName);
         if (existingRole.isEmpty()) {
             Role role = new Role(roleName, description);
-            for (String code : permissionCodes) {
-                Optional<Permission> permission = permissionRepository.findByCode(code);
-                permission.ifPresent(role::addPermission);
+            // Batch fetch all permissions to avoid N+1 queries
+            List<Permission> permissions = permissionRepository.findByCodeIn(Arrays.asList(permissionCodes));
+            for (Permission permission : permissions) {
+                role.addPermission(permission);
             }
             System.out.println("Creating role: " + roleName);
             roleRepository.save(role);

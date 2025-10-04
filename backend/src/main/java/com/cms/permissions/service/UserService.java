@@ -93,6 +93,21 @@ public class UserService {
             );
     }
 
+    // 用于认证的方法，不需要权限检查
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
+    }
+
+    // 用于认证的方法，不需要权限检查
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
+
+    // 用于认证的方法，不需要权限检查
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
     @PreAuthorize("hasAuthority('USER:MANAGE:SUB')")
     public User updateRolesForUser(Long userId, Set<String> roleNames) {
         User user = userRepository
