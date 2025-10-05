@@ -231,7 +231,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ visible, onClose }) => {
                     <div className="result-header">
                       <span className="result-icon">{getIcon(item.type)}</span>
                       <Text strong className="result-title">{item.title}</Text>
-                      <Tag color={getTypeColor(item.type)} size="small">
+                      <Tag color={getTypeColor(item.type)}>
                         {getTypeName(item.type)}
                       </Tag>
                     </div>
@@ -248,7 +248,7 @@ const SearchModal: React.FC<SearchModalProps> = ({ visible, onClose }) => {
                     {item.tags && item.tags.length > 0 && (
                       <div className="result-tags">
                         {item.tags.map(tag => (
-                          <Tag key={tag} size="small">{tag}</Tag>
+                          <Tag key={tag}>{tag}</Tag>
                         ))}
                       </div>
                     )}

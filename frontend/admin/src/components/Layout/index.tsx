@@ -36,14 +36,16 @@ import {
   PhoneOutlined,
   HomeOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import './index.less';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store';
 
 const { Header, Sider, Content, Footer } = Layout;
 const { Text } = Typography;
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 interface MenuItem {
@@ -89,6 +91,13 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
     token: { colorBgContainer },
   } = theme.useToken();
 
+  const authUser = useSelector((state: RootState) => state.auth.user);
+  const normalizedRoles = (authUser?.roles || []).map(r => {
+    const upper = r.toUpperCase();
+    return upper.startsWith('ROLE_') ? upper : `ROLE_${upper}`;
+  });
+  const hasRole = (role: string) => normalizedRoles.includes(role);
+
   // 菜单配置
   const menuItems: MenuItem[] = [
     {
@@ -129,19 +138,38 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
     },
   ];
 
-  // 模拟数据
-  useEffect(() => {
-    // 模拟用户信息
-    setCurrentUser({
-      id: '1',
-      name: '管理员',
-      email: 'admin@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-      role: '超级管理员',
-      department: '技术部',
-    });
+  // 仅管理员可见的菜单项
+  const visibleMenuItems = menuItems.filter(item => {
+    if (['users', 'statistics', 'settings'].includes(item.key)) {
+      return hasRole('ROLE_ADMIN');
+    }
+    // 其他菜单对所有已登录用户开放
+    return true;
+  });
 
-    // 模拟通知数据
+  // 调试日志已移除
+  useEffect(() => {
+    // no-op
+  }, [normalizedRoles]);
+
+  // 使用真实登录用户（移除硬编码的超级管理员）
+  useEffect(() => {
+    if (authUser) {
+      setCurrentUser({
+        id: authUser.id,
+        name: authUser.username,
+        email: authUser.email || '',
+        avatar: authUser.avatar || '',
+        role: normalizedRoles.join(', '),
+        department: '',
+      });
+    } else {
+      setCurrentUser(null);
+    }
+  }, [authUser, normalizedRoles]);
+
+  // 模拟通知数据（保留，不影响权限逻辑）
+  useEffect(() => {
     const mockNotifications: Notification[] = [
       {
         id: '1',
@@ -201,7 +229,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
       
       if (menuItem) {
         items.push({
-          title: menuItem.label,
+          title: <span>{menuItem.label}</span>,
         });
       }
     });
@@ -209,9 +237,9 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
     setBreadcrumbItems(items);
   }, [location.pathname]);
 
-  // 查找菜单项
+  // 查找菜单项（仅在可见菜单中查找）
   const findMenuItemByPath = (path: string): MenuItem | null => {
-    for (const item of menuItems) {
+    for (const item of visibleMenuItems) {
       if (item.path === path) {
         return item;
       }
@@ -230,11 +258,13 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
     return menuItem ? [menuItem.key] : [];
   };
 
-  // 菜单点击处理
+  // 菜单点击处理（防止访问未授权的页面）
   const handleMenuClick = ({ key }: { key: string }) => {
-    const menuItem = menuItems.find(item => item.key === key);
+    const menuItem = visibleMenuItems.find(item => item.key === key);
     if (menuItem) {
       navigate(menuItem.path);
+    } else {
+      message.warning('无权访问该菜单');
     }
   };
 
@@ -348,7 +378,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
             theme={darkMode ? 'dark' : 'light'}
             mode="inline"
             selectedKeys={getSelectedKeys()}
-            items={menuItems.map(item => ({
+            items={visibleMenuItems.map(item => ({
               key: item.key,
               icon: item.icon,
               label: item.label,
@@ -408,6 +438,11 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
                   />
                 </Badge>
 
+                {/* 当前角色显示 */}
+                <Text type="secondary">
+                  当前角色: {normalizedRoles.length ? normalizedRoles.join(', ') : '未登录'}
+                </Text>
+
                 {/* 用户信息 */}
                 <Dropdown
                   menu={{ items: userMenuItems }}
@@ -429,7 +464,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* 内容区域 */}
           <Content className="layout-content">
-            {children}
+            {children ?? <Outlet />}
           </Content>
 
           {/* 底部 */}

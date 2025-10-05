@@ -2,7 +2,7 @@
 
 // API相关常量
 export const API_CONSTANTS = {
-  BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080',
+  BASE_URL: (((import.meta as any)?.env?.REACT_APP_API_BASE_URL) ?? ((globalThis as any)?.process?.env?.REACT_APP_API_BASE_URL) ?? 'http://localhost:8080'),
   TIMEOUT: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,

@@ -55,6 +55,21 @@ export interface SimpleStatistics {
   }>;
 }
 
+// 登录结果类型（前后端通用结构）
+export interface LoginResult {
+  user: {
+    id: string;
+    username: string;
+    email?: string;
+    avatar?: string;
+    roles: string[];
+    permissions: string[];
+  };
+  token: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+
 // 模拟延迟
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -162,6 +177,16 @@ const mockStatistics: SimpleStatistics = {
 
 // API 服务类
 export class ApiService {
+  static getAuthHeaders(): HeadersInit {
+    try {
+      const raw = localStorage.getItem('auth');
+      if (!raw) return {};
+      const { token } = JSON.parse(raw) as { token?: string };
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  }
   // 用户相关API
   static async getUsers() {
     await delay(500);
@@ -222,6 +247,51 @@ export class ApiService {
       data: results,
       total: results.length,
       query
+    };
+  }
+
+  // 登录 API：后端优先，失败回退到 mock
+  static async login(username: string, password: string): Promise<LoginResult> {
+    const baseUrl = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+    try {
+      const resp = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data as LoginResult;
+      }
+    } catch (err) {
+      // 忽略网络/解析错误，回退到 mock
+    }
+
+    // mock 回退
+    await delay(400);
+    const found = mockUsers.find(u => u.username === username);
+    if (!found) {
+      throw new Error('用户名或密码错误');
+    }
+    const token = 'mock-token-' + Date.now();
+    const refreshToken = 'mock-refresh-' + Date.now();
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    // 将 mock 角色统一为 ROLE_ 前缀，便于与路由守卫一致
+    const normalizedRole = found.role?.startsWith('ROLE_')
+      ? found.role
+      : `ROLE_${found.role?.toUpperCase()}`;
+    return {
+      user: {
+        id: String(found.id),
+        username: found.username,
+        email: found.email,
+        avatar: found.avatar,
+        roles: [normalizedRole],
+        permissions: []
+      },
+      token,
+      refreshToken,
+      expiresAt
     };
   }
 }

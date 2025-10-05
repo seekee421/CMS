@@ -6,7 +6,7 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    /* Bundler mode */
+    /* Node resolution mode for better type compatibility */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
@@ -39,11 +39,10 @@
     "emitDecoratorMetadata": true,
 
     /* Type definitions */
-    "types": ["vite/client", "node", "@testing-library/jest-dom"]
+    "types": ["vite/client"]
   },
   "include": [
     "src",
-    "vite.config.ts",
     "../shared/src"
   ],
   "exclude": [

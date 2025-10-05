@@ -31,8 +31,8 @@ import {
   FileTextOutlined,
   UserOutlined,
   ClockCircleOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  RiseOutlined,
+  FallOutlined,
   CalendarOutlined,
   FilterOutlined
 } from '@ant-design/icons';
@@ -107,7 +107,7 @@ const Statistics: React.FC = () => {
   }, [dateRange, timeGranularity]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (autoRefresh) {
       interval = setInterval(() => {
         fetchStatistics();
@@ -195,11 +195,26 @@ const Statistics: React.FC = () => {
 
     // 生成分类数据
     const mockCategoryData: ChartData[] = [
-      { category: '前端开发', value: 35 },
-      { category: '后端开发', value: 28 },
-      { category: '数据库', value: 18 },
-      { category: '运维部署', value: 12 },
-      { category: '产品设计', value: 7 }
+      {
+        category: '前端开发', value: 35,
+        date: ''
+      },
+      {
+        category: '后端开发', value: 28,
+        date: ''
+      },
+      {
+        category: '数据库', value: 18,
+        date: ''
+      },
+      {
+        category: '运维部署', value: 12,
+        date: ''
+      },
+      {
+        category: '产品设计', value: 7,
+        date: ''
+      }
     ];
 
     // 生成系统指标
@@ -283,12 +298,12 @@ const Statistics: React.FC = () => {
           />
           {record.trend === 'up' && (
             <Tooltip title={`增长 ${record.trendValue}%`}>
-              <TrendingUpOutlined style={{ color: '#52c41a' }} />
+              <RiseOutlined style={{ color: '#52c41a' }} />
             </Tooltip>
           )}
           {record.trend === 'down' && (
             <Tooltip title={`下降 ${Math.abs(record.trendValue)}%`}>
-              <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+              <FallOutlined style={{ color: '#ff4d4f' }} />
             </Tooltip>
           )}
         </Space>
@@ -358,14 +373,24 @@ const Statistics: React.FC = () => {
   };
 
   const renderCategoryChart = () => {
+    const total = categoryData.reduce((sum, d) => sum + (d.value || 0), 0);
     const config = {
       data: categoryData,
       angleField: 'value',
       colorField: 'category',
       radius: 0.8,
       label: {
-        type: 'outer',
-        content: '{name} {percentage}',
+        type: 'inner',
+        content: (datum: any) => {
+          const percent = typeof datum.percent === 'number'
+            ? datum.percent
+            : typeof datum.percentage === 'number'
+              ? datum.percentage / 100
+              : total ? (datum.value || 0) / total : 0;
+          const pctText = Math.round(percent * 100) + '%';
+          const name = datum.category || datum.name || '';
+          return `${name} ${pctText}`;
+        },
       },
       interactions: [
         {
@@ -443,7 +468,11 @@ const Statistics: React.FC = () => {
           <Col>
             <RangePicker
               value={dateRange}
-              onChange={(dates) => dates && setDateRange(dates)}
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  setDateRange([dates[0], dates[1]]);
+                }
+              }}
               format="YYYY-MM-DD"
             />
           </Col>
@@ -506,9 +535,9 @@ const Statistics: React.FC = () => {
                     suffix={
                       <Space>
                         {overviewStats.documentsGrowth > 0 ? (
-                          <TrendingUpOutlined style={{ color: '#52c41a' }} />
+                          <RiseOutlined style={{ color: '#52c41a' }} />
                         ) : (
-                          <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+                          <FallOutlined style={{ color: '#ff4d4f' }} />
                         )}
                         <Text
                           type={overviewStats.documentsGrowth > 0 ? 'success' : 'danger'}
@@ -530,9 +559,9 @@ const Statistics: React.FC = () => {
                     suffix={
                       <Space>
                         {overviewStats.viewsGrowth > 0 ? (
-                          <TrendingUpOutlined style={{ color: '#52c41a' }} />
+                          <RiseOutlined style={{ color: '#52c41a' }} />
                         ) : (
-                          <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+                          <FallOutlined style={{ color: '#ff4d4f' }} />
                         )}
                         <Text
                           type={overviewStats.viewsGrowth > 0 ? 'success' : 'danger'}
@@ -554,9 +583,9 @@ const Statistics: React.FC = () => {
                     suffix={
                       <Space>
                         {overviewStats.downloadsGrowth > 0 ? (
-                          <TrendingUpOutlined style={{ color: '#52c41a' }} />
+                          <RiseOutlined style={{ color: '#52c41a' }} />
                         ) : (
-                          <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+                          <FallOutlined style={{ color: '#ff4d4f' }} />
                         )}
                         <Text
                           type={overviewStats.downloadsGrowth > 0 ? 'success' : 'danger'}
@@ -578,9 +607,9 @@ const Statistics: React.FC = () => {
                     suffix={
                       <Space>
                         {overviewStats.usersGrowth > 0 ? (
-                          <TrendingUpOutlined style={{ color: '#52c41a' }} />
+                          <RiseOutlined style={{ color: '#52c41a' }} />
                         ) : (
-                          <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+                          <FallOutlined style={{ color: '#ff4d4f' }} />
                         )}
                         <Text
                           type={overviewStats.usersGrowth > 0 ? 'success' : 'danger'}
@@ -629,9 +658,9 @@ const Statistics: React.FC = () => {
                         <Text strong>{metric.name}</Text>
                         <Space>
                           {metric.trend > 0 ? (
-                            <TrendingUpOutlined style={{ color: '#52c41a' }} />
+                            <RiseOutlined style={{ color: '#52c41a' }} />
                           ) : metric.trend < 0 ? (
-                            <TrendingDownOutlined style={{ color: '#ff4d4f' }} />
+                            <FallOutlined style={{ color: '#ff4d4f' }} />
                           ) : null}
                           <Text type="secondary" style={{ fontSize: '12px' }}>
                             {metric.trend > 0 ? '+' : ''}{metric.trend}%

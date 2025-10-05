@@ -55,7 +55,9 @@ public class DatabaseInitializer implements CommandLineRunner {
             new Permission("USER:CREATE", "Create users"),
             new Permission("USER:UPDATE", "Update users"),
             new Permission("USER:DELETE", "Delete users"),
-            new Permission("USER:STATUS:UPDATE", "Update user status")
+            new Permission("USER:STATUS:UPDATE", "Update user status"),
+            // Audit permissions
+            new Permission("AUDIT:READ", "Read audit logs")
         );
 
         for (Permission permission : permissions) {
@@ -96,6 +98,21 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
             System.out.println("Creating role: " + roleName);
             roleRepository.save(role);
+        } else {
+            // Role exists: ensure any newly introduced permissions are appended safely
+            Role role = existingRole.get();
+            List<Permission> permissions = permissionRepository.findByCodeIn(Arrays.asList(permissionCodes));
+            boolean updated = false;
+            for (Permission permission : permissions) {
+                if (!role.getPermissions().contains(permission)) {
+                    role.addPermission(permission);
+                    updated = true;
+                }
+            }
+            if (updated) {
+                System.out.println("Updating role permissions: " + roleName);
+                roleRepository.save(role);
+            }
         }
     }
 
@@ -120,7 +137,9 @@ public class DatabaseInitializer implements CommandLineRunner {
             "DOC:CREATE", "DOC:EDIT", "DOC:PUBLISH", "DOC:DELETE", "DOC:APPROVE:ALL",
             "DOC:APPROVE:ASSIGNED", "DOC:VIEW:LOGGED", "DOC:DOWNLOAD", "DOC:ASSIGN",
             "COMMENT:CREATE", "COMMENT:MANAGE", "USER:MANAGE:SUB", "USER:MANAGE:EDITOR", "USER:READ",
-            "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:STATUS:UPDATE"
+            "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:STATUS:UPDATE",
+            // Audit permissions
+            "AUDIT:READ"
         };
     }
 }

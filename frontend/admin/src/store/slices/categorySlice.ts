@@ -280,9 +280,9 @@ function updateCategoryStatusInTree(
 // 辅助函数：重排序分类
 function reorderCategoriesInTree(
   categories: Category[],
-  draggedId: string,
-  targetId: string,
-  position: 'before' | 'after' | 'inside'
+  _draggedId: string,
+  _targetId: string,
+  _position: 'before' | 'after' | 'inside'
 ): Category[] {
   // 这里实现复杂的拖拽重排序逻辑
   // 为了简化，这里返回原数组

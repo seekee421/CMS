@@ -392,7 +392,7 @@ export interface SearchEvent extends AppEvent {
   };
 }
 
-// 导出所有类型
-export * from './api';
-export * from './ui';
-export * from './utils';
+// 导出命名空间，避免与本文件中类型重名导致重复导出错误
+export * as apiTypes from './api';
+export * as uiTypes from './ui';
+export * as utilTypes from './utils';

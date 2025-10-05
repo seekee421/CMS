@@ -96,16 +96,3 @@ declare interface Window {
   __REDUX_DEVTOOLS_EXTENSION_COMPOSE__?: any;
   __INITIAL_STATE__?: any;
 }
-
-// 第三方库类型声明
-declare module 'react-router-dom' {
-  export * from 'react-router-dom';
-}
-
-declare module 'antd' {
-  export * from 'antd';
-}
-
-declare module '@ant-design/icons' {
-  export * from '@ant-design/icons';
-}

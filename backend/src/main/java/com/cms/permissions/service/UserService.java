@@ -70,8 +70,22 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        // 清除新用户的权限缓存
-        permissionCacheService.evictUserPermissions(savedUser.getId());
+        // 清除新用户的权限缓存（对缓存异常进行保护，避免影响数据库事务提交）
+        try {
+            permissionCacheService.evictUserPermissions(savedUser.getId());
+        } catch (Exception e) {
+            auditService.logPermissionOperation(
+                "CACHE_EVICT",
+                "USER",
+                savedUser.getId().toString(),
+                savedUser.getUsername(),
+                savedUser.getUsername(),
+                null,
+                null,
+                "FAILURE",
+                "Evict user permission cache failed: " + e.getMessage()
+            );
+        }
 
         return savedUser;
     }
@@ -134,8 +148,22 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        // 清除用户权限缓存，因为角色已更改
-        permissionCacheService.evictUserPermissions(userId);
+        // 清除用户权限缓存，因为角色已更改（对缓存异常进行保护）
+        try {
+            permissionCacheService.evictUserPermissions(userId);
+        } catch (Exception e) {
+            auditService.logPermissionOperation(
+                "CACHE_EVICT",
+                "USER",
+                savedUser.getId().toString(),
+                savedUser.getUsername(),
+                savedUser.getUsername(),
+                null,
+                null,
+                "FAILURE",
+                "Evict user permission cache failed: " + e.getMessage()
+            );
+        }
 
         return savedUser;
     }
@@ -152,8 +180,22 @@ public class UserService {
         user.setStatus(status);
         User savedUser = userRepository.save(user);
 
-        // 清除用户权限缓存，确保状态变更实时生效
-        permissionCacheService.evictUserPermissions(userId);
+        // 清除用户权限缓存，确保状态变更实时生效（对缓存异常进行保护）
+        try {
+            permissionCacheService.evictUserPermissions(userId);
+        } catch (Exception e) {
+            auditService.logPermissionOperation(
+                "CACHE_EVICT",
+                "USER",
+                savedUser.getId().toString(),
+                savedUser.getUsername(),
+                savedUser.getUsername(),
+                null,
+                null,
+                "FAILURE",
+                "Evict user permission cache failed: " + e.getMessage()
+            );
+        }
 
         // 记录审计日志
         String details = "User status changed from " + oldStatus + " to " + status;
@@ -175,9 +217,23 @@ public class UserService {
     @PreAuthorize("hasAuthority('USER:MANAGE:SUB')")
     public boolean deleteUser(Long userId) {
         if (userRepository.existsById(userId)) {
-            // 先清除用户权限缓存
-            permissionCacheService.evictUserPermissions(userId);
-            permissionCacheService.evictUserDocumentAssignments(userId);
+            // 先清除用户权限缓存（对缓存异常进行保护）
+            try {
+                permissionCacheService.evictUserPermissions(userId);
+                permissionCacheService.evictUserDocumentAssignments(userId);
+            } catch (Exception e) {
+                auditService.logPermissionOperation(
+                    "CACHE_EVICT",
+                    "USER",
+                    userId.toString(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    "FAILURE",
+                    "Evict user-related caches failed: " + e.getMessage()
+                );
+            }
 
             userRepository.deleteById(userId);
             return true;

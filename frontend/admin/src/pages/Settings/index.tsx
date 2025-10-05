@@ -496,7 +496,7 @@ const Settings: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      render: (_, record) => (
+      render: (_: any) => (
         <Space>
           <Button type="link" size="small" icon={<CloudUploadOutlined />}>
             下载

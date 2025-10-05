@@ -62,6 +62,7 @@ const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { TreeNode } = Tree;
 const { RangePicker } = DatePicker;
+import type { Dayjs } from 'dayjs';
 
 interface User {
   id: string;
@@ -109,10 +110,10 @@ const Users: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [roleFilter, setRoleFilter] = useState<string>('');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('');
-  const [dateRange, setDateRange] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
+  const [departmentFilter, setDepartmentFilter] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   
   // 模态框状态
   const [userModalVisible, setUserModalVisible] = useState(false);
@@ -793,7 +794,7 @@ const Users: React.FC = () => {
                 allowClear
                 style={{ width: '100%' }}
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={(value) => setStatusFilter(value as string | undefined)}
               >
                 <Option value="active">正常</Option>
                 <Option value="inactive">禁用</Option>
@@ -806,7 +807,7 @@ const Users: React.FC = () => {
                 allowClear
                 style={{ width: '100%' }}
                 value={roleFilter}
-                onChange={setRoleFilter}
+                onChange={(value) => setRoleFilter(value as string | undefined)}
               >
                 {roles.map(role => (
                   <Option key={role.code} value={role.code}>
@@ -821,7 +822,7 @@ const Users: React.FC = () => {
                 allowClear
                 style={{ width: '100%' }}
                 value={departmentFilter}
-                onChange={setDepartmentFilter}
+                onChange={(value) => setDepartmentFilter(value as string | undefined)}
               >
                 <Option value="技术部">技术部</Option>
                 <Option value="内容部">内容部</Option>
@@ -833,7 +834,7 @@ const Users: React.FC = () => {
                 placeholder={['开始日期', '结束日期']}
                 style={{ width: '100%' }}
                 value={dateRange}
-                onChange={setDateRange}
+                onChange={(dates) => setDateRange(dates ? [dates[0] ?? null, dates[1] ?? null] : [null, null])}
               />
             </Col>
           </Row>

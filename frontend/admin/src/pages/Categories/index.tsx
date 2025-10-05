@@ -326,7 +326,6 @@ const Categories: React.FC = () => {
             <Badge count={category.documentCount} color="blue" size="small" />
             <Tag 
               color={category.status === 'active' ? 'success' : 'default'}
-              size="small"
             >
               {category.status === 'active' ? '启用' : '禁用'}
             </Tag>

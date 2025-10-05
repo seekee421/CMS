@@ -26,6 +26,8 @@ export interface RequestConfig extends AxiosRequestConfig {
   skipErrorHandler?: boolean;
   showLoading?: boolean;
   showError?: boolean;
+  headers?: any;
+  metadata?: { startTime: Date };
 }
 
 // 错误响应接口
@@ -130,9 +132,11 @@ export class ApiClient {
       (response: AxiosResponse) => {
         // 计算请求耗时
         const endTime = new Date();
-        const duration = endTime.getTime() - response.config.metadata?.startTime?.getTime();
+        const startTime = (response.config as RequestConfig).metadata?.startTime;
+        const duration = startTime ? endTime.getTime() - startTime.getTime() : 0;
         
-        if (process.env.NODE_ENV === 'development') {
+        const isDev = (((import.meta as any)?.env?.MODE) === 'development') || (((globalThis as any)?.process?.env?.NODE_ENV) === 'development');
+        if (isDev) {
           console.log(`API Request: ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`);
         }
 
@@ -253,7 +257,7 @@ export class ApiClient {
       ...config,
       headers: {
         'Content-Type': 'multipart/form-data',
-        ...config?.headers,
+        ...(config as any)?.headers,
       },
     });
 

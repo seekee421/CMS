@@ -29,6 +29,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { Line, Column, Pie } from '@ant-design/plots';
+import dayjs, { Dayjs } from 'dayjs';
 import './index.less';
 
 const { Title, Text } = Typography;
@@ -86,7 +87,7 @@ const StatisticCard: React.FC<StatisticCardProps> = ({
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState<[string, string]>(['2024-01-01', '2024-12-31']);
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([dayjs('2024-01-01'), dayjs('2024-12-31')]);
   const [timeRange, setTimeRange] = useState<string>('month');
 
   // 模拟数据
@@ -316,7 +317,6 @@ const Dashboard: React.FC = () => {
     data: chartData.viewTrend,
     xField: 'date',
     yField: 'views',
-    seriesField: 'type',
     smooth: true,
     animation: {
       appear: {
@@ -327,14 +327,23 @@ const Dashboard: React.FC = () => {
   };
 
   // 分类分布图配置
+  const totalCount = chartData.categoryDistribution.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
   const pieConfig = {
     data: chartData.categoryDistribution,
     angleField: 'count',
     colorField: 'category',
     radius: 0.8,
     label: {
-      type: 'outer',
-      content: '{name} {percentage}%',
+      type: 'inner',
+      content: (datum: any) => {
+        const percent = typeof datum.percent === 'number'
+          ? datum.percent
+          : typeof datum.percentage === 'number'
+            ? datum.percentage / 100
+            : totalCount ? (datum.count || 0) / totalCount : 0;
+        const pctText = Math.round(percent * 100) + '%';
+        return `${datum.category} ${pctText}`;
+      },
     },
     interactions: [
       {
@@ -366,15 +375,8 @@ const Dashboard: React.FC = () => {
               <Option value="year">本年</Option>
             </Select>
             <RangePicker
-              value={dateRange as any}
-              onChange={(dates) => {
-                if (dates) {
-                  setDateRange([
-                    dates[0]?.format('YYYY-MM-DD') || '',
-                    dates[1]?.format('YYYY-MM-DD') || '',
-                  ]);
-                }
-              }}
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null])}
             />
             <Button
               icon={<ReloadOutlined />}
@@ -492,7 +494,7 @@ const Dashboard: React.FC = () => {
                         <Space>
                           <Text strong>{item.user}</Text>
                           <Text>{item.action}</Text>
-                          <Tag color={getActivityColor(item.type)} size="small">
+                          <Tag color={getActivityColor(item.type)}>
                             {item.type === 'document' && '文档'}
                             {item.type === 'user' && '用户'}
                             {item.type === 'feedback' && '反馈'}
