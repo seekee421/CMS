@@ -1,0 +1,26 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="treeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#52c41a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#389e0d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 树干 -->
+  <rect x="90" y="120" width="20" height="60" fill="#8B4513"/>
+  
+  <!-- 树叶 -->
+  <circle cx="100" cy="80" r="40" fill="url(#treeGradient)"/>
+  <circle cx="80" cy="90" r="25" fill="#52c41a" opacity="0.8"/>
+  <circle cx="120" cy="90" r="25" fill="#52c41a" opacity="0.8"/>
+  <circle cx="100" cy="60" r="20" fill="#73d13d" opacity="0.9"/>
+  
+  <!-- 地面 -->
+  <ellipse cx="100" cy="180" rx="60" ry="10" fill="#90EE90" opacity="0.5"/>
+  
+  <!-- 装饰性元素 -->
+  <circle cx="50" cy="160" r="3" fill="#ff7875"/>
+  <circle cx="150" cy="170" r="3" fill="#ff7875"/>
+  <circle cx="30" cy="140" r="2" fill="#ffd666"/>
+  <circle cx="170" cy="150" r="2" fill="#ffd666"/>
+</svg>

@@ -1,0 +1,444 @@
+.dashboard {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 64px);
+
+  .dashboard-header {
+    margin-bottom: 24px;
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      h2 {
+        margin: 0;
+        color: #262626;
+      }
+    }
+  }
+
+  .statistics-cards {
+    margin-bottom: 24px;
+
+    .ant-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+
+      &:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .ant-statistic {
+        .ant-statistic-title {
+          color: #8c8c8c;
+          font-size: 14px;
+          margin-bottom: 8px;
+        }
+
+        .ant-statistic-content {
+          color: #262626;
+          font-size: 24px;
+          font-weight: 600;
+
+          .ant-statistic-content-prefix {
+            margin-right: 8px;
+            color: #1890ff;
+          }
+        }
+      }
+
+      .statistic-trend {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #f0f0f0;
+
+        .ant-typography {
+          font-size: 12px;
+        }
+      }
+    }
+  }
+
+  .charts-section {
+    margin-bottom: 24px;
+
+    .chart-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      .ant-card-head {
+        border-bottom: 1px solid #f0f0f0;
+
+        .ant-card-head-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #262626;
+        }
+      }
+
+      .ant-card-body {
+        padding: 24px;
+      }
+    }
+  }
+
+  .data-section {
+    margin-bottom: 24px;
+
+    .ant-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      .ant-card-head {
+        .ant-card-head-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #262626;
+
+          .anticon {
+            margin-right: 8px;
+            color: #1890ff;
+          }
+        }
+
+        .ant-card-extra {
+          .ant-btn-link {
+            color: #1890ff;
+            padding: 0;
+          }
+        }
+      }
+
+      .ant-table {
+        .ant-table-thead > tr > th {
+          background: #fafafa;
+          border-bottom: 1px solid #f0f0f0;
+          font-weight: 600;
+          color: #262626;
+        }
+
+        .ant-table-tbody > tr > td {
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ant-table-tbody > tr:hover > td {
+          background: #f5f5f5;
+        }
+      }
+
+      .ant-list {
+        .ant-list-item {
+          padding: 12px 0;
+          border-bottom: 1px solid #f0f0f0;
+
+          &:last-child {
+            border-bottom: none;
+          }
+
+          .ant-list-item-meta {
+            .ant-list-item-meta-avatar {
+              .ant-avatar {
+                width: 40px;
+                height: 40px;
+              }
+            }
+
+            .ant-list-item-meta-content {
+              .ant-list-item-meta-title {
+                margin-bottom: 4px;
+                font-size: 14px;
+                line-height: 1.4;
+
+                .ant-typography {
+                  font-size: 14px;
+                }
+
+                .ant-tag {
+                  margin-left: 8px;
+                  font-size: 12px;
+                }
+              }
+
+              .ant-list-item-meta-description {
+                color: #8c8c8c;
+                font-size: 12px;
+                line-height: 1.4;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .system-status {
+    .ant-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      .ant-card-head-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #262626;
+      }
+
+      .ant-progress {
+        margin-bottom: 16px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .ant-progress-text {
+          font-size: 12px;
+          color: #8c8c8c;
+        }
+      }
+
+      .ant-btn {
+        margin-bottom: 8px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .anticon {
+          margin-right: 8px;
+        }
+      }
+    }
+  }
+
+  // 响应式设计
+  @media (max-width: 768px) {
+    padding: 16px;
+
+    .dashboard-header {
+      margin-bottom: 16px;
+
+      .header-content {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+
+        h2 {
+          text-align: center;
+        }
+      }
+    }
+
+    .statistics-cards,
+    .charts-section,
+    .data-section,
+    .system-status {
+      margin-bottom: 16px;
+    }
+
+    .ant-card {
+      .ant-card-body {
+        padding: 16px;
+      }
+    }
+
+    .ant-statistic {
+      .ant-statistic-content {
+        font-size: 20px;
+      }
+    }
+  }
+
+  @media (max-width: 576px) {
+    padding: 12px;
+
+    .dashboard-header {
+      .header-content {
+        padding: 12px 16px;
+      }
+    }
+
+    .ant-card {
+      .ant-card-head {
+        padding: 0 16px;
+        min-height: 48px;
+
+        .ant-card-head-title {
+          font-size: 14px;
+        }
+      }
+
+      .ant-card-body {
+        padding: 12px;
+      }
+    }
+
+    .ant-statistic {
+      .ant-statistic-content {
+        font-size: 18px;
+      }
+    }
+
+    .ant-table {
+      font-size: 12px;
+
+      .ant-table-thead > tr > th,
+      .ant-table-tbody > tr > td {
+        padding: 8px;
+      }
+    }
+  }
+}
+
+// 暗色主题适配
+[data-theme='dark'] {
+  .dashboard {
+    background: #141414;
+
+    .dashboard-header {
+      .header-content {
+        background: #1f1f1f;
+        border: 1px solid #303030;
+
+        h2 {
+          color: #fff;
+        }
+      }
+    }
+
+    .statistics-cards,
+    .charts-section,
+    .data-section,
+    .system-status {
+      .ant-card {
+        background: #1f1f1f;
+        border: 1px solid #303030;
+
+        .ant-card-head {
+          border-bottom: 1px solid #303030;
+
+          .ant-card-head-title {
+            color: #fff;
+          }
+        }
+
+        .ant-statistic {
+          .ant-statistic-title {
+            color: #a6a6a6;
+          }
+
+          .ant-statistic-content {
+            color: #fff;
+          }
+        }
+
+        .statistic-trend {
+          border-top: 1px solid #303030;
+        }
+
+        .ant-table {
+          .ant-table-thead > tr > th {
+            background: #262626;
+            border-bottom: 1px solid #303030;
+            color: #fff;
+          }
+
+          .ant-table-tbody > tr > td {
+            background: #1f1f1f;
+            border-bottom: 1px solid #303030;
+            color: #fff;
+          }
+
+          .ant-table-tbody > tr:hover > td {
+            background: #262626;
+          }
+        }
+
+        .ant-list {
+          .ant-list-item {
+            border-bottom: 1px solid #303030;
+
+            .ant-list-item-meta {
+              .ant-list-item-meta-content {
+                .ant-list-item-meta-title {
+                  .ant-typography {
+                    color: #fff;
+                  }
+                }
+
+                .ant-list-item-meta-description {
+                  color: #a6a6a6;
+                }
+              }
+            }
+          }
+        }
+
+        .ant-progress {
+          .ant-progress-text {
+            color: #a6a6a6;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 加载动画
+.dashboard-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+
+  .ant-spin {
+    .ant-spin-text {
+      color: #8c8c8c;
+      margin-top: 12px;
+    }
+  }
+}
+
+// 图表容器
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+
+  .chart-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+  }
+
+  .chart-error {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #8c8c8c;
+
+    .anticon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #d9d9d9;
+    }
+
+    .error-text {
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .ant-btn {
+      font-size: 12px;
+    }
+  }
+}

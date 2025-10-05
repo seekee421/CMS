@@ -51,7 +51,11 @@ public class DatabaseInitializer implements CommandLineRunner {
             new Permission("COMMENT:MANAGE", "Manage comments"),
             new Permission("USER:MANAGE:SUB", "Manage sub-admins and editors"),
             new Permission("USER:MANAGE:EDITOR", "Manage editors"),
-            new Permission("USER:READ", "Read user information")
+            new Permission("USER:READ", "Read user information"),
+            new Permission("USER:CREATE", "Create users"),
+            new Permission("USER:UPDATE", "Update users"),
+            new Permission("USER:DELETE", "Delete users"),
+            new Permission("USER:STATUS:UPDATE", "Update user status")
         );
 
         for (Permission permission : permissions) {
@@ -115,7 +119,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         return new String[] {
             "DOC:CREATE", "DOC:EDIT", "DOC:PUBLISH", "DOC:DELETE", "DOC:APPROVE:ALL",
             "DOC:APPROVE:ASSIGNED", "DOC:VIEW:LOGGED", "DOC:DOWNLOAD", "DOC:ASSIGN",
-            "COMMENT:CREATE", "COMMENT:MANAGE", "USER:MANAGE:SUB", "USER:MANAGE:EDITOR", "USER:READ"
+            "COMMENT:CREATE", "COMMENT:MANAGE", "USER:MANAGE:SUB", "USER:MANAGE:EDITOR", "USER:READ",
+            "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:STATUS:UPDATE"
         };
     }
 }

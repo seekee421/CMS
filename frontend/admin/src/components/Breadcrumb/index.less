@@ -1,0 +1,80 @@
+// 面包屑导航样式
+
+.custom-breadcrumb {
+  margin-bottom: 16px;
+  
+  .ant-breadcrumb {
+    font-size: 14px;
+    
+    .ant-breadcrumb-separator {
+      color: rgba(0, 0, 0, 0.45);
+      margin: 0 8px;
+    }
+    
+    .breadcrumb-icon {
+      margin-right: 4px;
+      color: rgba(0, 0, 0, 0.65);
+    }
+    
+    .breadcrumb-link {
+      color: rgba(0, 0, 0, 0.65);
+      text-decoration: none;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #1890ff;
+      }
+    }
+    
+    .breadcrumb-current {
+      color: rgba(0, 0, 0, 0.85);
+      font-weight: 500;
+    }
+  }
+}
+
+// 暗色主题
+.dark-theme {
+  .custom-breadcrumb {
+    .ant-breadcrumb {
+      .ant-breadcrumb-separator {
+        color: rgba(255, 255, 255, 0.45);
+      }
+      
+      .breadcrumb-icon {
+        color: rgba(255, 255, 255, 0.65);
+      }
+      
+      .breadcrumb-link {
+        color: rgba(255, 255, 255, 0.65);
+        
+        &:hover {
+          color: #1890ff;
+        }
+      }
+      
+      .breadcrumb-current {
+        color: rgba(255, 255, 255, 0.85);
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .custom-breadcrumb {
+    margin-bottom: 12px;
+    
+    .ant-breadcrumb {
+      font-size: 12px;
+      
+      .ant-breadcrumb-separator {
+        margin: 0 4px;
+      }
+      
+      .breadcrumb-icon {
+        margin-right: 2px;
+      }
+    }
+  }
+}

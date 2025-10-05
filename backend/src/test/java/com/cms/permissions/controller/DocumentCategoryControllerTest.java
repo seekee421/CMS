@@ -12,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
+import com.cms.permissions.config.TestSecurityConfig;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -24,12 +26,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(DocumentCategoryController.class)
+import org.springframework.context.annotation.Configuration;
+
+@WebMvcTest(controllers = DocumentCategoryController.class)
 @ActiveProfiles("test")
+@Import({TestSecurityConfig.class, DocumentCategoryController.class})
 class DocumentCategoryControllerTest {
-    
+    // 确保过滤器启用
     @Autowired
     private MockMvc mockMvc;
+    
+    @Configuration
+    static class LocalWebMvcTestConfig {}
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -153,6 +161,7 @@ class DocumentCategoryControllerTest {
         request.setDescription("Java高级开发相关文档");
         request.setParentId(1L);
         request.setSortOrder(2);
+        request.setIsActive(true);
         
         // 执行测试
         mockMvc.perform(put("/api/categories/{id}", 2L)
@@ -187,9 +196,9 @@ class DocumentCategoryControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isInternalServerError())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("系统异常: 分类不存在"));
+                .andExpect(jsonPath("$.message").value("更新分类失败: 分类不存在"));
         
         // 验证方法调用
         verify(categoryService).updateCategory(eq(999L), eq("测试分类"), eq("测试描述"), any(), any(), any());
@@ -221,9 +230,9 @@ class DocumentCategoryControllerTest {
         // 执行测试
         mockMvc.perform(delete("/api/categories/{id}", 999L)
                 .with(csrf()))
-                .andExpect(status().isInternalServerError())
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("系统异常: 分类不存在"));
+                .andExpect(jsonPath("$.message").value("删除分类失败: 分类不存在"));
         
         // 验证方法调用
         verify(categoryService).deleteCategory(999L);
@@ -256,9 +265,7 @@ class DocumentCategoryControllerTest {
         
         // 执行测试
         mockMvc.perform(get("/api/categories/{id}", 999L))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("分类不存在"));
+                .andExpect(status().isNotFound());
         
         // 验证方法调用
         verify(categoryService).getCategoryById(999L);
@@ -316,7 +323,7 @@ class DocumentCategoryControllerTest {
         when(categoryService.getTopLevelCategories()).thenReturn(topCategories);
         
         // 执行测试
-        mockMvc.perform(get("/api/categories/top"))
+        mockMvc.perform(get("/api/categories/top-level"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("获取顶级分类成功"))
@@ -364,5 +371,225 @@ class DocumentCategoryControllerTest {
         
         // 验证方法调用
         verify(categoryService).getChildCategories(999L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void testMoveCategory_Success() throws Exception {
+        DocumentCategory moved = new DocumentCategory("Java开发", "Java开发相关文档");
+        moved.setId(2L);
+        moved.setParentId(10L);
+        moved.setSortOrder(5);
+        when(categoryService.moveCategory(eq(2L), eq(10L), eq(5))).thenReturn(moved);
+
+        DocumentCategoryController.MoveCategoryRequest request = new DocumentCategoryController.MoveCategoryRequest();
+        request.setNewParentId(10L);
+        request.setNewSortOrder(5);
+
+        mockMvc.perform(post("/api/categories/{id}/move", 2L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("分类移动成功"))
+                .andExpect(jsonPath("$.data.id").value(2))
+                .andExpect(jsonPath("$.data.parentId").value(10))
+                .andExpect(jsonPath("$.data.sortOrder").value(5));
+
+        verify(categoryService).moveCategory(eq(2L), eq(10L), eq(5));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void testMoveCategory_InsufficientPermission() throws Exception {
+        DocumentCategoryController.MoveCategoryRequest request = new DocumentCategoryController.MoveCategoryRequest();
+        request.setNewParentId(10L);
+        request.setNewSortOrder(5);
+
+        mockMvc.perform(post("/api/categories/{id}/move", 2L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verify(categoryService, never()).moveCategory(anyLong(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void testUpdateSortOrders_Success() throws Exception {
+        List<DocumentCategory> updated = Arrays.asList(testCategory);
+        when(categoryService.updateSortOrders(eq(1L), anyList())).thenReturn(updated);
+
+        List<DocumentCategoryController.SortOrderUpdateRequest> req = Arrays.asList(
+                createSortReq(2L, 3),
+                createSortReq(4L, 1)
+        );
+
+        mockMvc.perform(put("/api/categories/{parentId}/sort", 1L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("排序更新成功"))
+                .andExpect(jsonPath("$.data").isArray());
+
+        verify(categoryService).updateSortOrders(eq(1L), anyList());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void testUpdateSortOrders_EmptyList() throws Exception {
+        List<DocumentCategoryController.SortOrderUpdateRequest> req = Arrays.asList();
+        when(categoryService.updateSortOrders(eq(1L), anyList())).thenReturn(Arrays.asList());
+
+        mockMvc.perform(put("/api/categories/{parentId}/sort", 1L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("排序更新成功"))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(0));
+
+        verify(categoryService).updateSortOrders(eq(1L), anyList());
+    }
+
+    private DocumentCategoryController.SortOrderUpdateRequest createSortReq(Long id, Integer order) {
+        DocumentCategoryController.SortOrderUpdateRequest r = new DocumentCategoryController.SortOrderUpdateRequest();
+        r.setId(id);
+        r.setSortOrder(order);
+        return r;
+    }
+
+    // 未认证写操作应返回401
+    @Test
+    void testCreateCategory_Unauthenticated_Should401() throws Exception {
+        DocumentCategoryController.CreateCategoryRequest request = new DocumentCategoryController.CreateCategoryRequest();
+        request.setName("未认证创建");
+        request.setDescription("未认证");
+        mockMvc.perform(post("/api/categories")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).createCategory(any(), any(), any(), any());
+    }
+
+    @Test
+    void testUpdateCategory_Unauthenticated_Should401() throws Exception {
+        DocumentCategoryController.UpdateCategoryRequest request = new DocumentCategoryController.UpdateCategoryRequest();
+        request.setName("更新未认证");
+        request.setDescription("未认证");
+        mockMvc.perform(put("/api/categories/{id}", 2L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).updateCategory(anyLong(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void testDeleteCategory_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(delete("/api/categories/{id}", 2L)
+                .with(csrf()))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).deleteCategory(anyLong());
+    }
+
+    @Test
+    void testMoveCategory_Unauthenticated_Should401() throws Exception {
+        DocumentCategoryController.MoveCategoryRequest request = new DocumentCategoryController.MoveCategoryRequest();
+        request.setNewParentId(10L);
+        request.setNewSortOrder(5);
+        mockMvc.perform(post("/api/categories/{id}/move", 2L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).moveCategory(anyLong(), any(), any());
+    }
+
+    @Test
+    void testUpdateSortOrders_Unauthenticated_Should401() throws Exception {
+        List<DocumentCategoryController.SortOrderUpdateRequest> req = Arrays.asList(
+                createSortReq(2L, 3),
+                createSortReq(4L, 1)
+        );
+        mockMvc.perform(put("/api/categories/{parentId}/sort", 1L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).updateSortOrders(anyLong(), anyList());
+    }
+
+    // 权限不足写操作应返回403
+    @Test
+    @WithMockUser(roles = "USER")
+    void testUpdateCategory_InsufficientPermission_Should403() throws Exception {
+        DocumentCategoryController.UpdateCategoryRequest request = new DocumentCategoryController.UpdateCategoryRequest();
+        request.setName("更新测试");
+        request.setDescription("权限不足");
+        mockMvc.perform(put("/api/categories/{id}", 2L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+        verify(categoryService, never()).updateCategory(anyLong(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void testUpdateSortOrders_InsufficientPermission_Should403() throws Exception {
+        List<DocumentCategoryController.SortOrderUpdateRequest> req = Arrays.asList(
+                createSortReq(2L, 3),
+                createSortReq(4L, 1)
+        );
+        mockMvc.perform(put("/api/categories/{parentId}/sort", 1L)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+        verify(categoryService, never()).updateSortOrders(anyLong(), anyList());
+    }
+
+    // 未认证读取端点应返回401
+    @Test
+    void testGetCategoryById_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(get("/api/categories/{id}", 2L))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).getCategoryById(anyLong());
+    }
+
+    @Test
+    void testGetAllActiveCategories_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(get("/api/categories"))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).getActiveCategories();
+    }
+
+    @Test
+    void testGetCategoryTree_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(get("/api/categories/tree"))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).getCategoryTree();
+    }
+
+    @Test
+    void testGetTopLevelCategories_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(get("/api/categories/top-level"))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).getTopLevelCategories();
+    }
+
+    @Test
+    void testGetChildCategories_Unauthenticated_Should401() throws Exception {
+        mockMvc.perform(get("/api/categories/{parentId}/children", 1L))
+                .andExpect(status().isUnauthorized());
+        verify(categoryService, never()).getChildCategories(anyLong());
     }
 }

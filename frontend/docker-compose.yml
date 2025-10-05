@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # 管理后台
+  cms-admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: cms-admin
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_APP_TITLE=CMS管理后台
+    volumes:
+      - ./admin/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    networks:
+      - cms-network
+    depends_on:
+      - cms-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 文档门户
+  cms-docs:
+    build:
+      context: ./docs-portal
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: cms-docs
+    ports:
+      - "3001:80"
+    environment:
+      - API_BASE_URL=http://localhost:8080
+      - ENABLE_ANALYTICS=true
+      - ENABLE_FEEDBACK=true
+    volumes:
+      - ./docs-portal/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    networks:
+      - cms-network
+    depends_on:
+      - cms-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 后端服务 (假设已存在)
+  cms-backend:
+    image: cms-backend:latest
+    container_name: cms-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DATABASE_URL=jdbc:mysql://cms-db:3306/cms
+      - REDIS_URL=redis://cms-redis:6379
+    networks:
+      - cms-network
+    depends_on:
+      - cms-db
+      - cms-redis
+    restart: unless-stopped
+
+  # 数据库
+  cms-db:
+    image: mysql:8.0
+    container_name: cms-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=cms
+      - MYSQL_USER=cms_user
+      - MYSQL_PASSWORD=cms_pass
+    volumes:
+      - cms_db_data:/var/lib/mysql
+      - ./backend/sql:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    networks:
+      - cms-network
+    restart: unless-stopped
+
+  # Redis缓存
+  cms-redis:
+    image: redis:7-alpine
+    container_name: cms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - cms_redis_data:/data
+    networks:
+      - cms-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: cms-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - cms-network
+    depends_on:
+      - cms-admin
+      - cms-docs
+      - cms-backend
+    restart: unless-stopped
+
+volumes:
+  cms_db_data:
+    driver: local
+  cms_redis_data:
+    driver: local
+
+networks:
+  cms-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

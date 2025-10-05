@@ -1,6 +1,8 @@
 package com.cms.permissions.repository;
 
 import com.cms.permissions.entity.Document;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +22,16 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
            "(SELECT da.documentId FROM DocumentAssignment da WHERE da.userId = :userId AND da.assignmentType = :assignmentType)")
     List<Document> findDocumentsAssignedToUser(@Param("userId") Long userId,
                                                @Param("assignmentType") com.cms.permissions.entity.DocumentAssignment.AssignmentType assignmentType);
+
+    // 分页与筛选：用户可访问范围 + 状态 + 关键词
+    @Query("SELECT d FROM Document d WHERE (d.status = com.cms.permissions.entity.Document$DocumentStatus.PUBLISHED OR d.id IN " +
+           "(SELECT da.documentId FROM DocumentAssignment da WHERE da.userId = :userId)) " +
+           "AND (:status IS NULL OR d.status = :status) " +
+           "AND (:keyword IS NULL OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(d.content) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Document> searchAccessibleDocuments(@Param("userId") Long userId,
+                                             @Param("status") Document.DocumentStatus status,
+                                             @Param("keyword") String keyword,
+                                             Pageable pageable);
 
     // 迁移相关查询方法
     

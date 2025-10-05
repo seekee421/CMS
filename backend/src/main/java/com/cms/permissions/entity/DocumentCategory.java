@@ -39,6 +39,12 @@ public class DocumentCategory {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "path", length = 1024)
+    private String path;
+
+    @Column(name = "level")
+    private Integer level = 0;
+
     // 构造函数
     public DocumentCategory() {
         this.createdAt = LocalDateTime.now();
@@ -114,6 +120,22 @@ public class DocumentCategory {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public Integer getLevel() {
+        return level;
+    }
+
+    public void setLevel(Integer level) {
+        this.level = level;
     }
 
     @PreUpdate

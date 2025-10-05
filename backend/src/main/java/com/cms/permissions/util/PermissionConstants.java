@@ -21,4 +21,12 @@ public class PermissionConstants {
     public static final String USER_MANAGE_SUB = "USER:MANAGE:SUB";
     public static final String USER_MANAGE_EDITOR = "USER:MANAGE:EDITOR";
     public static final String USER_READ = "USER:READ";
+
+    // Category permissions
+    public static final String CAT_VIEW = "CAT:VIEW";
+    public static final String CAT_CREATE = "CAT:CREATE";
+    public static final String CAT_UPDATE = "CAT:UPDATE";
+    public static final String CAT_DELETE = "CAT:DELETE";
+    public static final String CAT_MOVE = "CAT:MOVE";
+    public static final String CAT_SORT = "CAT:SORT";
 }

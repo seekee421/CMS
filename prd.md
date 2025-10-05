@@ -1,149 +1,106 @@
-您提出的权限要求非常具体，涉及到了资源级别的访问控制（Resource-Based Access Control），例如“指定文档的编辑发布员”和“子管理员可以审批指定文档”。
-为了优化此设计，并确保系统的可拓展性和可维护性，我们不能停留在简单的 RBAC（基于角色的访问控制），而需要采用 RBAC 结合定制化权限评估器 的混合模型。
-下面是基于 Spring/Java 后端的优化设计方案。
+一、部署及访问方式
+私有化部署★★
+部署方式为私有化部署；数据库需使用DM8部署，如产品使用了缓存数据库，则需更换为DMCDM缓存数据库。
+目前在开发阶段，我们使用的是Mysql9.4.0(本地安装)和Redis(Podman管理的容器运行)。这样的目的是，先使用成熟的数据库在本地开发环境中完成项目需求，然后再过度到DM8和DMCDM中，因为这个迁移的成本很低，达梦数据库完全兼容JDBC的相关数据库操作。
+支持多端访问★★
+前端支持平板、手机、PC端访问，管理后台支持PC端访问。
+二、产品在线文档中心的语言和样式风格
+产品在线文档中心支持中英双语，且样式风格与达梦官网保持一致★★
+1. 在达梦中文官网上部署简体中文产品技术文档，作为达梦中文官网的子站，且样式风格与达梦中文官网保持一致。
+2. 在达梦英文官网上部署英文产品技术文档，作为达梦英文官网的子站，且样式风格与达梦英文官网保持一致。
+3. 在达梦中文官网上部署繁体中文产品技术文档，作为达梦中文官网的子站，且样式风格与达梦中文官网保持一致。
+三、文档权限控制
+文件目录管理★★★★★
+支持管理员管理目录和文档界面，支持任意目录和文档的增、删、顺序移动。支持管理员隐藏任意目录和文档界面，支持管理员分配其余用户管理权限。
 
-1. 权限模型优化：RBAC + 资源所有权
-核心思想是：功能权限（增删改查） 通过 RBAC 赋予角色；而 数据权限（指定文档） 则通过数据库中的分配表和 Spring Security 的运行时评估 来实现。
-A. 四个角色及其功能权限
-角色中文名	角色代码 (Role Code)	职责描述
-管理员	ROLE_ADMIN	系统管理、全权限审批、设置 Sub-Admin/Editor。
-子管理员	ROLE_SUB_ADMIN	设置 Editor、审批指定文档。
-编辑发布员	ROLE_EDITOR	编辑、发布指定文档、管理指定文档的评论。
-用户	ROLE_USER	登录后查看、下载指定文档、发布评论。
-B. 权限字典设计（Permission Codes）
-权限代码采用 RESOURCE:ACTION 格式，并在代码中集中管理为常量，以提高可维护性。
-权限代码 (Permission Code)	权限描述 (Description)	备注
-DOC:EDIT	编辑文档	资源级检查：用户是否是该文档的指定编辑。
-DOC:PUBLISH	发布文档	资源级检查：用户是否是该文档的指定编辑。
-DOC:APPROVE:ALL	审批所有文档	管理员特有，无需资源级检查。
-DOC:APPROVE:ASSIGNED	审批指定文档	资源级检查：用户是否是该文档的指定审批员。
-DOC:VIEW:LOGGED	登录后查看文档	用于登录用户访问。
-DOC:DOWNLOAD	下载文档	登录用户权限，需数据过滤。
-COMMENT:CREATE	发布评论	登录用户权限。
-COMMENT:MANAGE	管理评论	资源级检查：用户是否是该评论所属文档的指定编辑。
-USER:MANAGE:SUB	管理子管理员和编辑发布员	管理员权限。
-USER:MANAGE:EDITOR	管理编辑发布员	子管理员权限。
+权限控制★★★★★
+角色分为：管理员、子管理员、编辑发布员和访客（访客又分为普通用户和VIP用户，这些文档可见权限设置已经在权限管理模块中实现了）。
+后台权限：管理员是所有权限，包括回收站中回复文档，【管理员可指定每个模块的编辑发布员】；编辑发布员具有对应模块下的所有文档发布权限。
+有四个角色：管理员、子管理员、编辑发布员、用户。权限管理：管理员可以设置子管理员和编辑发布员，子管理员可以设置编辑发布员。编辑发布员可以编辑和发布指定文档，子管理员可以审批指定文档，管理员可以审批所有文档。用户不能录状态仅可以查看文档，登录状态可以查看并下载指定文档并发布评论。指定文档的编辑发布员可以管理指定文档对应的评论。优化以上的管理后台设计，并充分考虑字典权限设置以方便权限管理模块的拓展与可维护性。
+文档目录树形结构★★★★★
+不同类型技术文档支持树形结构分层次展示（依据产品/ECO(https://eco.dameng.com)目前划分的目录进行分区参考）。支持目录编辑。
 
-2. 数据库表结构设计（关键点）
-除了标准的 user、role、permission 和关系表 (user_role, role_permission) 外，最关键的是引入 文档分配表。
-表名	关键字段	作用/设计说明
-document (文档表)	id, status, is_public	记录文档内容和状态。is_public 用于控制未登录用户的查看权限。
-doc_assignment (文档分配表)	doc_id, user_id, assignment_type	核心表。 用于实现“指定文档”的逻辑。
-		assignment_type 可为：EDITOR (编辑发布员), APPROVER (审批员)。
-comment (评论表)	id, doc_id, user_id	评论内容，关联到文档和用户。
-分配表 (doc_assignment) 示例：
-doc_id	user_id	assignment_type	含义
-1001	201	EDITOR	用户 201 是文档 1001 的编辑发布员。
-1001	301	APPROVER	用户 301 是文档 1001 的审批员。
+四、文档导入导出、备份和迁移
+文档导入★★★★★
+支持用户单个和批量导入word、pdf、markdown等类型文件上传，网页发布；同时自动生成网页内的目录导航栏；转换格式及内容需要精准。
+超链接支持自动关联到指定位置。
+(markdown文档上传针对产品手册，相关的md文件我们提供。)
+文档导出★★★★★
+支持超级用户（管理员或子管理员）单个和批量导出网页markdown等文件并选择转换为word、markdown、pdf等类型文件。转换格式及内容需要精准。
+文档下载★
+支持普通用户（用户需要登录，不登录的时候只能浏览无法下载）将在线文档（用户前端有权限浏览的文档并支持多选）下载为PDF文件。支持按我们提供的标准模板导出。
 
-3. 后端 Spring Security 授权实现（核心）
-在 Spring Security 中，要实现资源级权限，我们需要使用 方法安全 和 PermissionEvaluator。
-A. 定制权限评估器 (CustomPermissionEvaluator)
-这是实现资源级权限的关键。你需要实现 PermissionEvaluator 接口，并在 Spring Security 配置中注册。
-该评估器会处理所有 @PreAuthorize 中使用了 hasPermission() 方法的请求。
-hasPermission 接口方法
-// Controller层方法
-@PreAuthorize("hasPermission(#documentId, 'document', 'edit')")
-public Document editDocument(@PathVariable Long documentId, @RequestBody Document document) {
-    // ... 业务逻辑
-}
-评估器内部逻辑（以 DOC:EDIT 为例）
-1. 方法定义: hasPermission(Authentication auth, Serializable targetId, String targetType, Object permission)
-2. 第一层检查 (功能权限): 检查当前用户（auth）是否具有 DOC:EDIT 的功能权限。如果没有，直接拒绝。
-3. 第二层检查 (资源级检查):
-  ○ 资源类型是 document，操作是 edit：
-    ■ 查询 doc_assignment 表，判断 targetId（文档ID）是否分配给了当前用户（auth.getPrincipal().getId()），且 assignment_type 为 EDITOR。
-    ■ 如果条件满足，允许访问。
-B. 特殊权限逻辑处理
-权限场景	实现方式	Spring Security 表达式
-管理员审批所有	功能权限豁免	@PreAuthorize("hasAuthority('DOC:APPROVE:ALL') OR hasPermission(#documentId, 'document', 'approve')")
-子管理员审批指定	资源级检查	hasPermission(#documentId, 'document', 'approve')（在 Evaluator 中判断其 assignment_type 是否为 APPROVER）
-用户下载/查看	数据过滤/资源级检查	if (is_public OR hasPermission(#documentId, 'document', 'view')) 在 Service 层执行数据过滤。
-评论管理	资源级检查	@PreAuthorize("hasPermission(#commentId, 'comment', 'manage')")（Evaluator需通过 commentId 找到 doc_id，再检查用户是否是该 doc_id 的 EDITOR）
+文档备份
+在线文档能够自动备份及恢复。文档备份是一个重要的功能模块。
+核心技术栈：
+1. 
+  a. 数据存储层
+  ○ MySQL : 备份元数据存储
+  ○ 文件系统 : 备份文件存储
+  ○ Redis : 备份状态缓存
+2. 
+  a. 备份策略
+  ○ 增量备份 : 只备份变更内容
+  ○ 版本控制 : 支持多版本备份
+  ○ 压缩存储 : GZIP压缩减少存储空间
+  ○ 校验和验证 : SHA-256确保数据完整性
+3. 
+  a. 调度机制
+  ○ Spring Scheduler : 定时自动备份
+  ○ 异步处理 : CompletableFuture异步备份
+  ○ 事件驱动 : 文档更新/删除时自动备份
+4. 
+  a. 安全机制
+  ○ 权限控制 : 基于角色的备份权限
+  ○ 审计日志 : 完整的操作记录
+  ○ 数据加密 : 可选的备份文件加密
+主要特性：
+✅ 自动备份 : 定时自动备份，支持配置间隔
+✅ 手动备份 : 支持手动触发备份 
+✅ 版本管理 : 多版本备份，支持版本限制 
+✅ 快速恢复 : 一键恢复到任意版本 
+✅ 完整性验证 : 校验和验证备份完整性 
+✅ 存储优化 : 压缩存储，节省空间 
+✅ 监控统计 : 备份状态监控和统计 
+✅ 清理机制 : 自动清理过期备份
+部署建议：
+1. 存储规划 : 建议使用独立的存储卷存放备份文件
+2. 性能优化 : 大文档建议启用压缩和异步备份
+3. 监控告警 : 配置备份失败告警机制
+4. 定期验证 : 定期验证备份完整性
 
-4. 权限管理模块的拓展与可维护性
-1. 权限与资源类型解耦（策略模式）
-为了未来新增资源（例如：图片库 PhotoLibrary）时无需修改核心安全代码，可以使用策略模式。
-● 设计: 创建一个 PermissionStrategy 接口。为每种资源类型（Document, Comment, User）实现一个策略类（如 DocumentPermissionStrategy）。
-● 拓展性: 当新增 PhotoLibrary 资源时，只需添加 PhotoLibraryPermissionStrategy 类，并在 CustomPermissionEvaluator 中增加一个 Map 映射关系即可。
-2. 用户管理模块分级设计
-● 管理员: 拥有调用 user_role API 的权限，可以添加/修改 ROLE_ADMIN, ROLE_SUB_ADMIN, ROLE_EDITOR。
-● 子管理员: 仅拥有添加/修改 ROLE_EDITOR 的权限。
-● 实现: 在用户管理相关的 Controller 上，使用 @PreAuthorize("hasAuthority('USER:MANAGE:SUB')") 和 @PreAuthorize("hasAuthority('USER:MANAGE:EDITOR')") 进行严格的分级控制。
-3. 数据查询层的权限过滤
-对于“用户登录状态可以查看并下载指定文档”的需求，不能只依赖 @PreAuthorize，因为用户可能拥有 DOC:VIEW:LOGGED 权限，但只能看到他被授权或公开的文档。
-● 实现: 在 DocumentService.getDocuments() 方法中，必须根据当前登录用户的 ID 动态生成 SQL 查询条件：
-WHERE document.status = 'PUBLISHED'  -- 所有用户都可以查看已发布的
-OR EXISTS (
-    SELECT 1 FROM doc_assignment
-    WHERE doc_assignment.doc_id = document.id AND doc_assignment.user_id = [CURRENT_USER_ID]
-) -- 或者用户被明确分配了该文档
-这个优化的设计确保了：
-1. 安全性高: 权限控制在后端 API 层实现，且基于资源 ID 进行校验。
-2. 灵活度高: 通过 doc_assignment 表，可以灵活地为任何用户分配任何文档的任何特定权限。
-3. 可维护性强: 通过常量和策略模式，未来新增角色或资源类型时，改动范围最小。
 
-使用 Spring 和 Java 作为后端，实现 字典权限管理 的 CMS（内容管理系统）后台，需要综合运用 Spring Security 框架和常见的设计模式，如 RBAC（基于角色的访问控制）。
-权限模型设计：基于角色的访问控制（RBAC）
-最适合这种多用户、多权限场景的是 RBAC（Role-Based Access Control） 模型，并结合 细粒度权限（Permission-Level Access Control）。
-核心实体关系
-实体	描述	示例数据	关系
-用户 (User)	登录系统的个体	管理员、子管理员、普通用户	$N:M$ 与角色
-角色 (Role)	一组权限的集合	管理员（System Admin）、内容管理员（Content Admin）、普通用户（Standard User）	$1:N$ 与用户
-权限 (Permission)	允许执行的特定操作	DICTIONARY:CREATE (字典:增)、DICTIONARY:APPROVE (字典:审批)、COMMENT:MANAGE (评论:管理)	$N:M$ 与角色
-资源 (Resource)	需要保护的对象或功能	字典管理、评论模块、系统设置	$1:N$ 与权限
+现有网站数据迁移★★★★★
+将ECO (https://eco.dameng.com) 现有的在线文档中的所有内容进行无损迁移。可提供ECO文档模块的源代码配合进行现有网站数据迁移。在文档中的静态资源（图片、视频等）的在线存储和管理问题，这个问题有哪一些解决方案
 
-2. 数据库表结构设计（MySQL 示例）
-基于上述 RBAC 模型，至少需要以下几张核心表：
-核心表
-1. user (用户表)
-  ○ id (PK), username, password (hashed), email, status
-2. role (角色表)
-  ○ id (PK), name (如：ADMIN, SUB_ADMIN, USER), description
-3. permission (权限表)
-  ○ id (PK), code (重要，如：DICTIONARY:CREATE), name (中文描述), resource_id (关联到资源)
-关系表（中间表）
-4. user_role (用户-角色关系表)
-  ○ user_id (FK), role_id (FK) - 确定用户拥有哪些角色。
-5. role_permission (角色-权限关系表)
-  ○ role_id (FK), permission_id (FK) - 确定角色拥有哪些权限。
+五、文档管理
+在线编辑及预览★★★★★
+1. 支持编辑发布员在线编辑和预览网页内容；打开20M内的文件响应时间在3秒内。
+2. 网页内代码段内容支持不同语言风格种类，如shell、sql、java、c、c++、python、php等常用编程语法。表格样式可以美化，可插入编辑框。
 
-3. 后端架构和关键技术
-技术栈
-● 框架: Spring Boot (快速开发和配置)
-● 安全: Spring Security (认证和授权的核心)
-● 数据: Spring Data JPA 或 MyBatis
-● 语言: Java
-● 数据库: MySQL/PostgreSQL
-核心实现：Spring Security
-A. 认证 (Authentication)
-1. 用户登录: 使用 UsernamePasswordAuthenticationFilter 处理登录请求。
-2. UserDetailsService: 实现 UserDetailsService 接口，从数据库查询用户信息（包括角色），返回一个 UserDetails 对象。
-B. 授权 (Authorization)
-这是权限管理的核心。
-1. 权限加载: 在 UserDetails 对象中，将用户拥有的权限（而非角色）作为 GrantedAuthority 集合加载进来。例如，用户如果拥有 ADMIN 角色，其权限集合应包含 DICTIONARY:CREATE, DICTIONARY:DELETE, DICTIONARY:APPROVE 等。
-2. 细粒度权限控制：使用 @PreAuthorize
-在 Spring Controller 或 Service 层的方法上，使用 SpEL (Spring Expression Language) 表达式进行权限校验。
-权限操作	权限代码 (Permission Code)	@PreAuthorize 示例
-增 (Create)	DICTIONARY:CREATE	@PreAuthorize("hasAuthority('DICTIONARY:CREATE')")
-审批 (Approve)	DICTIONARY:APPROVE	@PreAuthorize("hasAuthority('DICTIONARY:APPROVE')")
-评论管理 (Manage)	COMMENT:MANAGE	@PreAuthorize("hasAuthority('COMMENT:MANAGE')")
-3. URL 级别控制 (较低粒度):
-对于整个路径（如 /admin/**），可以在 SecurityFilterChain 配置中使用 requestMatchers("/admin/**").hasRole("ADMIN") 进行角色限制。但对于字典增删改查等，推荐使用 @PreAuthorize。
-字典内容业务逻辑
-1. 字典实体 (DictionaryItem): 包含字段如 id, name, content, status (待发布/已发布/待审批), created_by。
-2. 状态机设计: 对于字典的 增、改、发布、审批 等操作，需要一个状态机来管理字典的生命周期。
-  ○ 例如：新建 $\rightarrow$ 待审批 $\rightarrow$ 已发布 / 驳回。
-  ○ 只有拥有 DICTIONARY:APPROVE 权限的人才能将状态从 待审批 变为 已发布 或 驳回。
-多用户类型权限分配示例
-用户类型	角色 (Role)	核心权限 (Permission Code)
-管理员	System Admin	所有权限（例如：*:* 或所有权限代码）
-子管理员	Content Admin	DICTIONARY:CREATE, DICTIONARY:UPDATE, DICTIONARY:APPROVE, COMMENT:MANAGE
-普通用户	Standard User	DICTIONARY:BROWSE, DICTIONARY:DOWNLOAD, DICTIONARY:COMMENT
+网页检索★★★★★
+支持用户按文档标题和文档内容进行全网页检索，并且支持根据检索内容直接跳转定位到对应文档界面的对应检索块。这个检索的功能模块我选择的技术解决方案是结合项目本身的技术架构来完成现有功能，预留Elasticsearch接口。
+文档反馈★
+支持已注册用户对文档内容进行反馈，入口参考如图。
+反馈的参考模版：问题类型（内容不正确、没有找到需要的内容、描述不清晰、其他建议）
+意见描述：（0/2000字）
+联系方式：请输入您的邮箱/联系电话
 
-4. 后台管理界面设计 (前端配合)
-虽然是后端设计，但需要考虑前端如何配合权限控制：
-1. 菜单/按钮隐藏: 后端登录成功后，将用户拥有的所有权限代码列表（如 ['DICTIONARY:CREATE', 'DICTIONARY:APPROVE']）返回给前端。前端根据这个列表动态显示/隐藏菜单项和页面中的按钮。
-2. 二次校验: 前端隐藏只是优化用户体验，后端 API 上的 @PreAuthorize 才是真正的安全保障。即使前端绕过，后端也会拒绝没有权限的请求。
-总结
-该设计方案以 Spring Security 为核心，采用 RBAC 模型，并利用 @PreAuthorize 实现对字典增删改查、发布、审批等复杂操作的细粒度权限控制，完全符合你的要求。
+六、产品版本的文档控制和数据统计
+版本选择★★★★★
+1. 在产品手册左上角有产品和版本的选择框，支持选择不同的产品和不同的产品版本
+
+文档数据统计★
+1. 支持文档浏览和下载次数统计，并可视化，可设置展示的优先级排序规则。（管理用户可见）
+2. 支持按日、周、月、总量对文档访问量进行统计，且有统计图。
+七、产品在线文档中心的前端效果
+前端渲染效果★★★★★
+要求前端渲染的效果清晰美观、导航直观、响应迅速、适配多端、渲染高效；
+一、实现的效果（参考页面）：
+1. https://www.oceanbase.com/docs/common-oceanbase-database-cn-1000000002012647
+
+
+2. https://www.oceanbase.com/docs/oceanbase-database-cn
+3. UI设计一定要参考其达梦公司的新官网，要与其新官网保持一致：http://static.hongru.com.cn/D_dmsj/dm_cn/index.aspx
+二、上述需求中的相关标准模版和产品手册适配的MD文档届时可联系我们获取。以上需求暂不涉及ECO的VIP专区和社区模块。
+三、可提供ECO文档的前端源代码配合进行新的文档中心建设。

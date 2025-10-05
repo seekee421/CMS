@@ -32,7 +32,7 @@ public class DocumentCategoryController {
      */
     @PostMapping
     @Operation(summary = "创建分类", description = "创建新的文档分类")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('CAT:CREATE') OR hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<DocumentCategory>> createCategory(
             @Valid @RequestBody CreateCategoryRequest request) {
         
@@ -60,7 +60,7 @@ public class DocumentCategoryController {
      */
     @PutMapping("/{id}")
     @Operation(summary = "更新分类", description = "更新指定的文档分类")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('CAT:UPDATE') OR hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<DocumentCategory>> updateCategory(
             @Parameter(description = "分类ID") @PathVariable Long id,
             @Valid @RequestBody UpdateCategoryRequest request) {
@@ -91,7 +91,7 @@ public class DocumentCategoryController {
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "删除分类", description = "删除指定的文档分类")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('CAT:DELETE') OR hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(
             @Parameter(description = "分类ID") @PathVariable Long id) {
         
@@ -202,6 +202,48 @@ public class DocumentCategoryController {
     }
     
     /**
+     * 移动分类
+     */
+    @PostMapping("/{id}/move")
+    @Operation(summary = "移动分类", description = "将分类移动到新的父节点并可调整排序")
+    @PreAuthorize("hasAuthority('CAT:MOVE') OR hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<DocumentCategory>> moveCategory(
+            @Parameter(description = "分类ID") @PathVariable Long id,
+            @Valid @RequestBody MoveCategoryRequest request) {
+        try {
+            DocumentCategory updated = categoryService.moveCategory(id, request.getNewParentId(), request.getNewSortOrder());
+            return ResponseEntity.ok(ApiResponse.success(updated, "分类移动成功"));
+        } catch (Exception e) {
+            logger.error("移动分类失败: {} -> {}", id, request.getNewParentId(), e);
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error(null, "移动分类失败: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 批量更新排序
+     */
+    @PutMapping("/{parentId}/sort")
+    @Operation(summary = "批量排序", description = "批量更新同一父节点下的分类排序")
+    @PreAuthorize("hasAuthority('CAT:SORT') OR hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<DocumentCategory>>> updateSortOrders(
+            @Parameter(description = "父分类ID") @PathVariable Long parentId,
+            @Valid @RequestBody List<SortOrderUpdateRequest> updatesRequest) {
+        try {
+            List<DocumentCategoryService.SortOrderUpdate> updates = new java.util.ArrayList<>();
+            for (SortOrderUpdateRequest r : updatesRequest) {
+                updates.add(new DocumentCategoryService.SortOrderUpdate(r.getId(), r.getSortOrder()));
+            }
+            List<DocumentCategory> result = categoryService.updateSortOrders(parentId, updates);
+            return ResponseEntity.ok(ApiResponse.success(result, "排序更新成功"));
+        } catch (Exception e) {
+            logger.error("更新排序失败: parent={}", parentId, e);
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error(null, "更新排序失败: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * 创建分类请求DTO
      */
     public static class CreateCategoryRequest {
@@ -285,5 +327,25 @@ public class DocumentCategoryController {
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
         public T getData() { return data; }
+    }
+    
+    /** 移动分类请求DTO */
+    public static class MoveCategoryRequest {
+        private Long newParentId;
+        private Integer newSortOrder;
+        public Long getNewParentId() { return newParentId; }
+        public void setNewParentId(Long newParentId) { this.newParentId = newParentId; }
+        public Integer getNewSortOrder() { return newSortOrder; }
+        public void setNewSortOrder(Integer newSortOrder) { this.newSortOrder = newSortOrder; }
+    }
+
+    /** 排序更新请求DTO */
+    public static class SortOrderUpdateRequest {
+        private Long id;
+        private Integer sortOrder;
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Integer getSortOrder() { return sortOrder; }
+        public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     }
 }

@@ -29,6 +29,9 @@ public class UserService {
     @Autowired
     private PermissionCacheService permissionCacheService;
 
+    @Autowired
+    private AuditService auditService;
+
     @PreAuthorize(
         "hasAuthority('USER:MANAGE:SUB') OR hasAuthority('USER:MANAGE:EDITOR')"
     )
@@ -133,6 +136,38 @@ public class UserService {
 
         // 清除用户权限缓存，因为角色已更改
         permissionCacheService.evictUserPermissions(userId);
+
+        return savedUser;
+    }
+
+    @PreAuthorize("hasAuthority('USER:STATUS:UPDATE') OR hasAuthority('USER:MANAGE:SUB') OR hasAuthority('USER:MANAGE:EDITOR')")
+    public User updateUserStatus(Long userId, User.UserStatus status) {
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() ->
+                new UserNotFoundException("User not found with id: " + userId)
+            );
+
+        User.UserStatus oldStatus = user.getStatus();
+        user.setStatus(status);
+        User savedUser = userRepository.save(user);
+
+        // 清除用户权限缓存，确保状态变更实时生效
+        permissionCacheService.evictUserPermissions(userId);
+
+        // 记录审计日志
+        String details = "User status changed from " + oldStatus + " to " + status;
+        auditService.logPermissionOperation(
+            "UPDATE_STATUS",
+            "USER",
+            savedUser.getId().toString(),
+            savedUser.getUsername(),
+            savedUser.getUsername(),
+            null,
+            null,
+            "SUCCESS",
+            details
+        );
 
         return savedUser;
     }

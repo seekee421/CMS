@@ -7,6 +7,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
+import java.util.List;
+import java.util.ArrayList;
 
 public class CustomUserDetails implements UserDetails {
     private final User user;
@@ -25,10 +27,25 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return user.getRoles().stream()
+        // 同时授予角色与权限，确保 hasRole('...') 与 hasAuthority('...') 均可用
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // 角色授予：使用ROLE_*
+        authorities.addAll(
+            user.getRoles().stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName()))
+                .collect(Collectors.toList())
+        );
+
+        // 权限授予：具体权限码
+        authorities.addAll(
+            user.getRoles().stream()
                 .flatMap(role -> role.getPermissions().stream())
                 .map(permission -> new SimpleGrantedAuthority(permission.getCode()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList())
+        );
+
+        return authorities;
     }
 
     @Override

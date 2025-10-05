@@ -31,7 +31,7 @@ public class CacheManagementController {
         summary = "获取缓存健康状态",
         description = "获取缓存系统的健康状态信息"
     )
-    @GetMapping("/health")
+    @GetMapping("/management/health")
     public ResponseEntity<
         CacheHealthService.CacheHealthStatus
     > getCacheHealth() {

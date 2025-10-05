@@ -87,7 +87,7 @@ public class UserController {
 
     @Operation(summary = "更新用户角色", description = "更新用户的角色集合")
     @PutMapping("/{id}/roles")
-    @PreAuthorize("hasAuthority('USER:UPDATE')")
+    @PreAuthorize("hasAuthority('USER:UPDATE') OR hasAuthority('USER:MANAGE:SUB') OR hasAuthority('USER:MANAGE:EDITOR')")
     public ResponseEntity<User> updateUserRoles(
         @Parameter(description = "用户ID", example = "1") @PathVariable Long id,
         @Parameter(description = "角色名称集合") @RequestBody Set<
@@ -95,6 +95,17 @@ public class UserController {
         > roleNames
     ) {
         User user = userService.updateRolesForUser(id, roleNames);
+        return ResponseEntity.ok(user);
+    }
+
+    @Operation(summary = "更新用户状态", description = "更新用户启用/停用/冻结状态")
+    @PutMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('USER:STATUS:UPDATE') OR hasAuthority('USER:MANAGE:SUB') OR hasAuthority('USER:MANAGE:EDITOR')")
+    public ResponseEntity<User> updateUserStatus(
+        @Parameter(description = "用户ID", example = "1") @PathVariable Long id,
+        @Parameter(description = "用户状态: ACTIVE/INACTIVE/SUSPENDED", example = "ACTIVE") @RequestParam User.UserStatus status
+    ) {
+        User user = userService.updateUserStatus(id, status);
         return ResponseEntity.ok(user);
     }
 

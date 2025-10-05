@@ -361,4 +361,67 @@ class DocumentCategoryServiceTest {
         // 验证方法调用
         verify(categoryRepository).findByParentIdIsNullAndIsActiveTrueOrderBySortOrder();
     }
+
+    // === 新增：moveCategory 路径与层级批量更新正确性 ===
+    @Test
+    void testMoveCategory_UpdatePathAndLevel_ForRootParent() {
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.save(any(DocumentCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // 子节点为空，避免批量更新递归产生空指针
+        when(categoryRepository.findByParentId(anyLong())).thenReturn(Arrays.asList());
+        DocumentCategory result = categoryService.moveCategory(2L, null, 7);
+        assertNotNull(result);
+        assertEquals(0, result.getLevel());
+        assertEquals("/" + result.getName(), result.getPath());
+        assertEquals(7, result.getSortOrder());
+        verify(categoryRepository).save(any(DocumentCategory.class));
+    }
+
+    @Test
+    void testMoveCategory_UpdatePathAndLevel_ForChildParent() {
+        parentCategory.setLevel(0);
+        parentCategory.setPath("/" + parentCategory.getName());
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(parentCategory));
+        when(categoryRepository.save(any(DocumentCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // 子节点为空，避免批量更新递归产生空指针
+        when(categoryRepository.findByParentId(anyLong())).thenReturn(Arrays.asList());
+        DocumentCategory result = categoryService.moveCategory(2L, 1L, null);
+        assertNotNull(result);
+        assertEquals(1, result.getLevel());
+        assertEquals(parentCategory.getPath() + "/" + result.getName(), result.getPath());
+        verify(categoryRepository).save(any(DocumentCategory.class));
+    }
+
+    // === 新增：moveCategory 环引用防护测试 ===
+    @Test
+    void testMoveCategory_CyclePrevention_ShouldThrow() {
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(testCategory));
+        when(categoryRepository.findByParentId(2L)).thenReturn(Arrays.asList(childCategory));
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            categoryService.moveCategory(2L, 3L, null);
+        });
+        assertTrue(ex.getMessage().contains("环引用"));
+        verify(categoryRepository, never()).save(any());
+    }
+
+    // === 新增：updateSortOrders 批量排序更新测试 ===
+    @Test
+    void testUpdateSortOrders_BatchUpdate() {
+        DocumentCategory c1 = new DocumentCategory("A", ""); c1.setId(10L); c1.setParentId(1L); c1.setSortOrder(1);
+        DocumentCategory c2 = new DocumentCategory("B", ""); c2.setId(11L); c2.setParentId(1L); c2.setSortOrder(2);
+        when(categoryRepository.findByParentId(1L)).thenReturn(Arrays.asList(c1, c2));
+        when(categoryRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        List<DocumentCategoryService.SortOrderUpdate> updates = Arrays.asList(
+                new DocumentCategoryService.SortOrderUpdate(10L, 3),
+                new DocumentCategoryService.SortOrderUpdate(11L, 1)
+        );
+        List<DocumentCategory> result = categoryService.updateSortOrders(1L, updates);
+        assertEquals(2, result.size());
+        DocumentCategory rc1 = result.stream().filter(x -> x.getId().equals(10L)).findFirst().orElseThrow();
+        DocumentCategory rc2 = result.stream().filter(x -> x.getId().equals(11L)).findFirst().orElseThrow();
+        assertEquals(3, rc1.getSortOrder());
+        assertEquals(1, rc2.getSortOrder());
+        verify(categoryRepository).saveAll(anyList());
+    }
 }

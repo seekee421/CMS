@@ -1,6 +1,7 @@
 package com.cms.permissions;
 
-import com.cms.permissions.config.SecurityConfig;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.security.web.SecurityFilterChain;
 import com.cms.permissions.security.CustomPermissionEvaluator;
 import com.cms.permissions.security.UserDetailsServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -23,13 +24,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@ActiveProfiles("test")
 public class SecurityConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
-    private SecurityConfig securityConfig;
+    private SecurityFilterChain securityFilterChain;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -51,7 +53,7 @@ public class SecurityConfigTest {
      */
     @Test
     public void testSecurityBeansCreation() {
-        assertNotNull(securityConfig, "SecurityConfig should be created");
+        assertNotNull(securityFilterChain, "SecurityFilterChain should be created under test profile");
         assertNotNull(passwordEncoder, "PasswordEncoder should be created");
         assertNotNull(authenticationManager, "AuthenticationManager should be created");
         assertNotNull(methodSecurityExpressionHandler, "MethodSecurityExpressionHandler should be created");

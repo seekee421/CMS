@@ -52,14 +52,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // if token is valid configure Spring Security to manually set authentication
             if (jwtUtil.validateToken(jwtToken, username)) {
 
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                usernamePasswordAuthenticationToken
-                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                // After setting the Authentication in the context, we specify
-                // that the current user is authenticated. So it passes the
-                // Spring Security Configurations successfully.
-                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                // Enforce real-time user status: only authenticate if enabled and not locked/suspended
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                    logger.warn("User '" + username + "' is disabled or suspended; skipping authentication");
+                } else {
+                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    usernamePasswordAuthenticationToken
+                            .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                }
             }
         }
         filterChain.doFilter(request, response);
