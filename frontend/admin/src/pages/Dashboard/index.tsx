@@ -31,6 +31,7 @@ import {
 import { Line, Column, Pie } from '@ant-design/plots';
 import dayjs, { Dayjs } from 'dayjs';
 import './index.less';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -86,6 +87,7 @@ const StatisticCard: React.FC<StatisticCardProps> = ({
 );
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([dayjs('2024-01-01'), dayjs('2024-12-31')]);
   const [timeRange, setTimeRange] = useState<string>('month');
@@ -327,28 +329,36 @@ const Dashboard: React.FC = () => {
   };
 
   // 分类分布图配置
-  const totalCount = chartData.categoryDistribution.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
+  const categoryData = chartData.categoryDistribution.map((d: any) => ({
+    category: d.category,
+    value: d.count,
+    percentage: d.percentage,
+  }));
+  const total = categoryData.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
   const pieConfig = {
-    data: chartData.categoryDistribution,
-    angleField: 'count',
+    data: categoryData,
+    angleField: 'value',
     colorField: 'category',
     radius: 0.8,
     label: {
-      type: 'inner',
+      position: 'inside',
       content: (datum: any) => {
         const percent = typeof datum.percent === 'number'
           ? datum.percent
           : typeof datum.percentage === 'number'
             ? datum.percentage / 100
-            : totalCount ? (datum.count || 0) / totalCount : 0;
+            : total ? (datum.value || 0) / total : 0;
         const pctText = Math.round(percent * 100) + '%';
-        return `${datum.category} ${pctText}`;
+        const name = datum.category || datum.name || '';
+        return `${name} ${pctText}`;
+      },
+      style: {
+        textAlign: 'center',
       },
     },
     interactions: [
-      {
-        type: 'element-active',
-      },
+      { type: 'pie-legend-active' },
+      { type: 'element-active' },
     ],
   };
 
@@ -451,7 +461,7 @@ const Dashboard: React.FC = () => {
                 </Space>
               }
               extra={
-                <Button type="link" size="small">
+                <Button type="link" size="small" onClick={() => navigate('/admin/documents?sort=popular')} aria-label="热门文档查看更多">
                   查看更多
                 </Button>
               }
@@ -474,7 +484,7 @@ const Dashboard: React.FC = () => {
                 </Space>
               }
               extra={
-                <Button type="link" size="small">
+                <Button type="link" size="small" onClick={() => navigate('/admin/activities')} aria-label="最近活动查看更多">
                   查看更多
                 </Button>
               }

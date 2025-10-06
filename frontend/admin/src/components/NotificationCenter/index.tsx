@@ -260,10 +260,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className }) =>
   
   return (
     <Dropdown
-      overlay={dropdownContent}
+      menu={{
+        items: [
+          { key: 'header', label: dropdownContent },
+        ],
+      }}
       trigger={['click']}
       placement="bottomRight"
-      overlayClassName="notification-dropdown-overlay"
       open={visible}
       onOpenChange={setVisible}
     >

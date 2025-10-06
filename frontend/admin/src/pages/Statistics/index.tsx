@@ -380,7 +380,7 @@ const Statistics: React.FC = () => {
       colorField: 'category',
       radius: 0.8,
       label: {
-        type: 'inner',
+        position: 'inside',
         content: (datum: any) => {
           const percent = typeof datum.percent === 'number'
             ? datum.percent
@@ -390,6 +390,9 @@ const Statistics: React.FC = () => {
           const pctText = Math.round(percent * 100) + '%';
           const name = datum.category || datum.name || '';
           return `${name} ${pctText}`;
+        },
+        style: {
+          textAlign: 'center',
         },
       },
       interactions: [

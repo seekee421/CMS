@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App as AntdApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { useSelector } from 'react-redux';
 import type { RootState } from './store';
@@ -42,8 +42,9 @@ const App: React.FC = () => {
 
   return (
     <ConfigProvider locale={zhCN}>
-      <BrowserRouter>
-        <Routes>
+      <AntdApp>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
           <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
           <Route
             path="/admin"
@@ -86,6 +87,7 @@ const App: React.FC = () => {
           <Route path="*" element={<div>404 页面未找到</div>} />
         </Routes>
       </BrowserRouter>
+      </AntdApp>
     </ConfigProvider>
   );
 };

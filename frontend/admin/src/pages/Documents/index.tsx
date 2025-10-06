@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Card,
   Table,
@@ -89,6 +90,25 @@ const Documents: React.FC = () => {
     pageSize: 20,
     total: 0,
   });
+
+  // 受控排序状态（表头箭头显示）
+  const [sortInfo, setSortInfo] = useState<{ columnKey: string; order: 'ascend' | 'descend' | null } | null>(null);
+
+  // 读取查询参数以确定默认排序
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const sortParam = searchParams.get('sort');
+  const isPopularSort = sortParam === 'popular';
+  const isDownloadsSort = sortParam === 'downloads';
+
+  // 根据查询参数初始化受控排序箭头状态
+  useEffect(() => {
+    if (isPopularSort || isDownloadsSort) {
+      setSortInfo({ columnKey: 'stats', order: 'descend' });
+    } else {
+      setSortInfo(null);
+    }
+  }, [isPopularSort, isDownloadsSort]);
 
   // 模态框状态
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -183,8 +203,14 @@ const Documents: React.FC = () => {
     try {
       // 模拟API调用
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setDocuments(mockDocuments);
-      setPagination(prev => ({ ...prev, total: mockDocuments.length }));
+      const data = [...mockDocuments];
+      if (isPopularSort) {
+        data.sort((a, b) => b.viewCount - a.viewCount);
+      } else if (isDownloadsSort) {
+        data.sort((a, b) => b.downloadCount - a.downloadCount);
+      }
+      setDocuments(data);
+      setPagination(prev => ({ ...prev, total: data.length }));
     } catch (error) {
       message.error('获取文档列表失败');
     } finally {
@@ -207,6 +233,9 @@ const Documents: React.FC = () => {
   // 处理表格变化
   const handleTableChange = (paginationConfig: any, filters: any, sorter: any) => {
     setPagination(paginationConfig);
+    if (sorter && sorter.columnKey) {
+      setSortInfo({ columnKey: sorter.columnKey, order: sorter.order });
+    }
   };
 
   // 处理行选择
@@ -411,7 +440,7 @@ const Documents: React.FC = () => {
       render: (tags: string[]) => (
         <Space wrap>
           {tags.map(tag => (
-            <Tag key={tag} size="small">
+            <Tag key={tag}>
               {tag}
             </Tag>
           ))}
@@ -422,6 +451,10 @@ const Documents: React.FC = () => {
       title: '统计',
       key: 'stats',
       width: 120,
+      sorter: (a: Document, b: Document) => (isDownloadsSort ? a.downloadCount - b.downloadCount : a.viewCount - b.viewCount),
+      sortDirections: ['descend', 'ascend'],
+      defaultSortOrder: isPopularSort || isDownloadsSort ? 'descend' : undefined,
+      sortOrder: sortInfo?.columnKey === 'stats' ? sortInfo.order ?? null : undefined,
       render: (_, record: Document) => (
         <Space direction="vertical" size={0}>
           <Space size={4}>
@@ -495,7 +528,36 @@ const Documents: React.FC = () => {
               />
             </Popconfirm>
           </Tooltip>
-          <Dropdown overlay={getMoreMenu(record)} trigger={['click']}>
+          <Dropdown
+            menu={{
+              items: [
+                { key: 'duplicate', icon: <FileTextOutlined />, label: '复制文档' },
+                { key: 'move', icon: <FolderOutlined />, label: '移动到分类' },
+                { key: 'history', icon: <CalendarOutlined />, label: '版本历史' },
+                { type: 'divider' as const },
+                { key: 'archive', icon: <TagOutlined />, label: '归档文档' },
+              ],
+              onClick: ({ key }) => {
+                switch (key) {
+                  case 'duplicate':
+                    message.info(`正在复制文档：${record.title}`);
+                    break;
+                  case 'move':
+                    message.info(`准备将文档移动到分类：${record.categoryName}`);
+                    break;
+                  case 'history':
+                    message.info(`打开文档版本历史：${record.title}`);
+                    break;
+                  case 'archive':
+                    message.info(`正在归档文档：${record.title}`);
+                    break;
+                  default:
+                    break;
+                }
+              },
+            }}
+            trigger={["click"]}
+          >
             <Button
               type="text"
               size="small"

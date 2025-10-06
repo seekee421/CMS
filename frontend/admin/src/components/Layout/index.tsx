@@ -36,7 +36,7 @@ import {
   PhoneOutlined,
   HomeOutlined,
 } from '@ant-design/icons';
-import { useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet, Link } from 'react-router-dom';
 import './index.less';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store';
@@ -90,6 +90,8 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
   const {
     token: { colorBgContainer },
   } = theme.useToken();
+
+  const [messageApi, contextHolder] = message.useMessage();
 
   const authUser = useSelector((state: RootState) => state.auth.user);
   const normalizedRoles = (authUser?.roles || []).map(r => {
@@ -262,9 +264,11 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
   const handleMenuClick = ({ key }: { key: string }) => {
     const menuItem = visibleMenuItems.find(item => item.key === key);
     if (menuItem) {
+      // 调试日志：观察点击事件与目标路径
+      console.debug('[AdminLayout] Menu click:', { key, path: menuItem.path });
       navigate(menuItem.path);
     } else {
-      message.warning('无权访问该菜单');
+      messageApi.warning('无权访问该菜单');
     }
   };
 
@@ -302,7 +306,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
       icon: <LogoutOutlined />,
       label: '退出登录',
       onClick: () => {
-        message.success('已退出登录');
+        messageApi.success('已退出登录');
         navigate('/login');
       },
     },
@@ -331,7 +335,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
   // 主题切换
   const toggleTheme = () => {
     setDarkMode(!darkMode);
-    message.success(`已切换到${!darkMode ? '暗色' : '亮色'}主题`);
+    messageApi.success(`已切换到${!darkMode ? '暗色' : '亮色'}主题`);
   };
 
   // 通知类型图标
@@ -354,6 +358,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
         algorithm: darkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
       }}
     >
+      {contextHolder}
       <Layout className={`admin-layout ${darkMode ? 'dark-theme' : ''}`}>
         {/* 侧边栏 */}
         <Sider
@@ -381,7 +386,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
             items={visibleMenuItems.map(item => ({
               key: item.key,
               icon: item.icon,
-              label: item.label,
+              label: <Link to={item.path} data-testid={`menu-${item.key}`}>{item.label}</Link>,
             }))}
             onClick={handleMenuClick}
             className="layout-menu"
@@ -575,7 +580,7 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
                   账户设置
                 </Button>
                 <Button danger block onClick={() => {
-                  message.success('已退出登录');
+                  messageApi.success('已退出登录');
                   navigate('/login');
                 }}>
                   退出登录
