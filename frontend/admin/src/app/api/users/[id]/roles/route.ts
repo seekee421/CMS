@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { cookies } from "next/headers";
 
 function getApiBase() {
@@ -19,8 +19,9 @@ async function buildAuthHeader(): Promise<Record<string, string>> {
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const apiBase = getApiBase();
     const authHeader = await buildAuthHeader();
     const headers: HeadersInit = {
@@ -29,7 +30,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       ...authHeader,
     };
     const body = await req.text();
-    const resp = await fetch(`${apiBase}/api/users/${params.id}/roles`, { method: "PUT", headers, body });
+    const resp = await fetch(`${apiBase}/api/users/${id}/roles`, { method: "PUT", headers, body });
     const data = await resp.json().catch(() => null);
     return NextResponse.json(data ?? {}, { status: resp.status || 500 });
   } catch (e) {

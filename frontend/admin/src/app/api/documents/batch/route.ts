@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const headers: HeadersInit = { "Content-Type": "application/json", Accept: "application/json", ...authHeader };
 
     // 根据前端请求的 operation 推断更友好的 requiredPermission
-    const op = String((body as any)?.operation || "").toUpperCase();
+    const op = String((body as Record<string, unknown>)?.operation || "").toUpperCase();
     const permMap: Record<string, string> = {
       UPDATE_STATUS: "DOC:STATUS:UPDATE",
       DELETE: "DOC:DELETE",

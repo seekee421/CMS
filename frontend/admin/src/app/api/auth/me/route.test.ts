@@ -4,10 +4,10 @@ import { GET as getMe } from "./route";
 function makeMockCookies(sessionValue?: string) {
   return {
     get: (name: string) => {
-      if (name !== "session" || !sessionValue) return undefined as any;
-      return { name: "session", value: sessionValue } as any;
+      if (name !== "session" || !sessionValue) return undefined as unknown as undefined;
+      return { name: "session", value: sessionValue } as { name: string; value: string };
     },
-  } as any;
+  } as unknown as { get: (name: string) => { name: string; value: string } | undefined };
 }
 
 // Monkey-patch next/headers cookies for testing
@@ -20,7 +20,7 @@ vi.mock("next/headers", () => {
 describe("/api/auth/me GET", () => {
   it("returns authenticated true and roles when session cookie exists", async () => {
     const res = await getMe();
-    const json = await (res as any).json();
+    const json = await res.json();
     expect(json.authenticated).toBe(true);
     expect(Array.isArray(json.roles)).toBe(true);
     expect(json.roles).toContain("ROLE_ADMIN");

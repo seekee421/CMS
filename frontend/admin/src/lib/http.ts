@@ -37,16 +37,17 @@ export const getJSON = async <T>(url: string, params?: Record<string, unknown>):
   try {
     const { data } = await http.get<T>(url, { params });
     return data;
-  } catch (err: any) {
-    const status = err?.response?.status;
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError;
+    const status = axiosError.response?.status;
     // 在 403 时，尽量返回更明确的错误信息（包含 requiredPermission）
     if (status === 403) {
-      const data = err?.response?.data;
+      const data = axiosError.response?.data as { message?: string; requiredPermission?: string } | undefined;
       const message = data?.message || `Request failed with status code 403`;
       const required = data?.requiredPermission ? `（缺少权限：${data.requiredPermission}）` : "";
       throw new Error(`${message}${required}`);
     }
-    const isNetworkError = !err?.response;
+    const isNetworkError = !axiosError.response;
     if (isNetworkError) {
       // 契约一致的 mock 回退，仅在网络不可达时触发
       if (url.includes("/api/users")) {

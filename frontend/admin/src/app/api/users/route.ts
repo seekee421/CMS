@@ -19,31 +19,50 @@ async function buildAuthHeader(): Promise<Record<string, string>> {
   }
 }
 
+// 类型守卫与工具函数
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasArrayProp<K extends string>(obj: unknown, key: K): obj is Record<K, unknown[]> {
+  return isRecord(obj) && Array.isArray((obj as Record<string, unknown>)[key] as unknown[]);
+}
+
+function readNumber(obj: Record<string, unknown>, keys: string[], fallback: number): number {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return fallback;
+}
+
 // 将后端 PageResult 或 Spring Page 结构统一为前端当前使用的 Spring Page 结构
-function normalizeListResponse(json: any) {
-  if (json && Array.isArray(json.content)) {
+function normalizeListResponse(json: unknown) {
+  if (hasArrayProp(json, "content")) {
     // Spring Page 格式，直接返回
     return json;
   }
-  if (json && Array.isArray(json.items)) {
-    const total: number = json.total ?? json.totalElements ?? json.count ?? json.items.length;
-    const page: number = json.page ?? json.number ?? 0;
-    const size: number = json.size ?? json.pageSize ?? json.limit ?? json.items.length;
+  if (hasArrayProp(json, "items")) {
+    const obj = json as Record<string, unknown>;
+    const items = obj["items"] as unknown[];
+    const total: number = readNumber(obj, ["total", "totalElements", "count"], items.length);
+    const page: number = readNumber(obj, ["page", "number"], 0);
+    const size: number = readNumber(obj, ["size", "pageSize", "limit"], items.length);
     const totalPages = size > 0 ? Math.ceil(total / size) : 1;
     return {
-      content: json.items,
+      content: items,
       totalElements: total,
       totalPages,
       size,
       number: page,
       first: page === 0,
       last: page + 1 >= totalPages,
-      empty: (json.items?.length ?? 0) === 0,
+      empty: items.length === 0,
     };
   }
   // 非分页列表，包一层
   if (Array.isArray(json)) {
-    const content = json;
+    const content = json as unknown[];
     return {
       content,
       totalElements: content.length,

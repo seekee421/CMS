@@ -42,8 +42,9 @@ export default function NewDocumentPage() {
       } else {
         router.push("/admin/documents");
       }
-    } catch (e: any) {
-      setError(e?.message || "网络错误");
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "网络错误";
+      setError(msg);
     } finally {
       setSubmitting(false);
     }

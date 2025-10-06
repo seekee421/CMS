@@ -36,13 +36,14 @@ export default function DocumentEditPage() {
       try {
         const resp = await fetch(`/api/documents/${id}`);
         const data: DocumentDetail = await resp.json();
-        if (!resp.ok) throw new Error((data as any)?.message || "加载失败");
+        if (!resp.ok) throw new Error((data as { message?: string })?.message || "加载失败");
         setTitle(data.title || "");
         setSummary(data.summary || "");
         setContent(data.content || "");
-        setCategoryId((data.categoryId ?? "") as any);
-      } catch (e: any) {
-        setError(e?.message || "网络错误");
+        setCategoryId((data.categoryId ?? "") as number | "");
+      } catch (e: unknown) {
+        const msg = (e as { message?: string })?.message || "网络错误";
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -70,8 +71,9 @@ export default function DocumentEditPage() {
       const data = await resp.json().catch(() => null);
       if (!resp.ok) throw new Error(data?.message || "保存失败");
       setMessage("保存成功");
-    } catch (e: any) {
-      setError(e?.message || "网络错误");
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "网络错误";
+      setError(msg);
     } finally {
       setSaving(false);
     }

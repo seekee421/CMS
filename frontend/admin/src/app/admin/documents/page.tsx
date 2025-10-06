@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getJSON } from "@/lib/http";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ interface DocumentItem {
   updatedAt?: string;
   viewCount?: number;
   downloadCount?: number;
+  status?: "DRAFT" | "PUBLISHED" | "ARCHIVED" | string;
 }
 
 // 状态徽章：根据文档状态显示不同颜色与文案
@@ -64,10 +65,10 @@ export default function DocumentsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchStatus, setBatchStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED">("DRAFT");
   const isAdmin = useMemo(() => roles.includes("ROLE_ADMIN"), [roles]);
-  const hasPerm = (p: string) => permissions.includes(p);
-  const canPublish = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:PUBLISH"), [isAdmin, roles, permissions]);
-  const canUpdateStatus = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:EDIT"), [isAdmin, roles, permissions]);
-  const canDelete = useMemo(() => isAdmin || hasPerm("DOC:DELETE"), [isAdmin, permissions]);
+  const hasPerm = useCallback((p: string) => permissions.includes(p), [permissions]);
+  const canPublish = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:PUBLISH"), [isAdmin, roles, hasPerm]);
+  const canUpdateStatus = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:EDIT"), [isAdmin, roles, hasPerm]);
+  const canDelete = useMemo(() => isAdmin || hasPerm("DOC:DELETE"), [isAdmin, hasPerm]);
   useEffect(() => {
     (async () => {
       try {
@@ -95,7 +96,14 @@ export default function DocumentsPage() {
     setSelected((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
   const clearSelected = () => setSelected([]);
-  const runBatch = async (operation: string, payload?: Record<string, any>) => {
+  // 类型守卫
+  const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+  const readNumber = (v: unknown, fallback = 0): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const runBatch = async (operation: string, payload?: Record<string, unknown>) => {
     if (selected.length === 0) return;
     setBatchLoading(true);
     try {
@@ -104,20 +112,21 @@ export default function DocumentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation, documentIds: selected, ...(payload || {}) }),
       });
-      const data = await resp.json().catch(() => ({}));
+      const data: unknown = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const perm = (data as any)?.requiredPermission;
-        const msg = (data as any)?.message || (resp.status === 403 ? `权限不足${perm ? `（需要 ${perm}）` : ""}` : "批量操作失败");
+        const perm = isRecord(data) && typeof data.requiredPermission === "string" ? data.requiredPermission : undefined;
+        const msg = isRecord(data) && typeof data.message === "string" ? data.message : resp.status === 403 ? `权限不足${perm ? `（需要 ${perm}）` : ""}` : "批量操作失败";
         throw new Error(msg);
       }
-      const success = Number((data as any)?.successCount ?? selected.length);
-      const failure = Number((data as any)?.failureCount ?? 0);
+      const success = isRecord(data) ? readNumber(data.successCount, selected.length) : selected.length;
+      const failure = isRecord(data) ? readNumber(data.failureCount, 0) : 0;
       clearSelected();
       fetchDocuments();
       showToast(failure > 0 ? `成功 ${success} 项，失败 ${failure} 项` : `操作成功（共 ${success} 项）`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      showToast(e?.message || "操作失败，请稍后重试");
+      const msg = (e as { message?: string })?.message || "操作失败，请稍后重试";
+      showToast(msg);
     } finally {
       setBatchLoading(false);
     }
@@ -136,7 +145,7 @@ export default function DocumentsPage() {
 
   const params = useMemo(() => ({ page, size, keyword: query, status: status ?? undefined }), [page, size, query, status]);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -144,17 +153,17 @@ export default function DocumentsPage() {
       setItems(pageData.content || []);
       setTotalPages(pageData.totalPages ?? 0);
       setTotalElements(pageData.totalElements ?? 0);
-    } catch (e: any) {
-      setError(e?.message || "加载失败，请稍后重试");
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "加载失败，请稍后重试";
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchDocuments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, fetchDocuments]);
 
   // 防抖处理关键词输入
   useEffect(() => {
@@ -166,8 +175,7 @@ export default function DocumentsPage() {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, params, fetchDocuments]);
 
   const goPrev = () => setPage((p) => Math.max(0, p - 1));
   const goNext = () => setPage((p) => Math.min(Math.max(totalPages - 1, 0), p + 1));
@@ -279,8 +287,7 @@ export default function DocumentsPage() {
                     <div className="flex items-center gap-2">
                       <CardTitle className="line-clamp-1">{doc.title}</CardTitle>
                       {/* 状态徽章 */}
-                      {/* @ts-ignore */}
-                      {statusBadge((doc as any).status)}
+                      {statusBadge(doc.status)}
                     </div>
                     <CardDescription className="line-clamp-2">{doc.summary || "无摘要"}</CardDescription>
                   </div>
@@ -327,7 +334,7 @@ export default function DocumentsPage() {
               <select
                 className="w-full px-3 py-2 border rounded-md bg-background text-sm"
                 value={batchStatus}
-                onChange={(e) => setBatchStatus(e.target.value as any)}
+                onChange={(e) => setBatchStatus((e.target as HTMLSelectElement).value as "DRAFT" | "PUBLISHED" | "ARCHIVED")}
               >
                 <option value="DRAFT">草稿</option>
                 <option value="PUBLISHED">已发布</option>

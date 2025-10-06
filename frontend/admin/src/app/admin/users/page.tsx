@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getJSON, postJSON } from "@/lib/http";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -59,11 +59,11 @@ export default function UsersPage() {
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const params = useMemo(() => ({ page, size, keyword: search }), [page, size, search]);
+  // 查询参数由 TanStack Query 管理，不再需要单独的 params 变量
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     await refetch();
-  };
+  }, [refetch]);
 
   const handleResetPassword = async (user: UserItem) => {
     if (!user?.email) {
@@ -74,8 +74,9 @@ export default function UsersPage() {
       setResetLoadingId(user.id);
       const res = await postJSON<{ message?: string }>("/api/auth/password-reset", { email: user.email });
       setToastMsg(res?.message || "重置邮件已发送");
-    } catch (e: any) {
-      setToastMsg(e?.response?.data?.message || e?.message || "发送失败，请稍后重试");
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "发送失败，请稍后重试";
+      setToastMsg(msg);
     } finally {
       setResetLoadingId(null);
     }
@@ -107,8 +108,9 @@ export default function UsersPage() {
       setToastMsg(res?.message || "邀请已发送");
       setInviteEmail("");
       setInviteRoles([]);
-    } catch (e: any) {
-      setToastMsg(e?.response?.data?.message || e?.message || "邀请失败，请稍后重试");
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "邀请失败，请稍后重试";
+      setToastMsg(msg);
     } finally {
       setInviteLoading(false);
     }
@@ -130,8 +132,9 @@ export default function UsersPage() {
       setSelectedIds([]);
       setBatchRoles([]);
       fetchUsers();
-    } catch (e: any) {
-      setToastMsg(e?.response?.data?.message || e?.message || "批量分配失败，请稍后重试");
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "批量分配失败，请稍后重试";
+      setToastMsg(msg);
     } finally {
       setBatchLoading(false);
     }
@@ -147,8 +150,7 @@ export default function UsersPage() {
       }
     })();
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, fetchUsers]);
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -159,8 +161,7 @@ export default function UsersPage() {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword]);
+  }, [keyword, setSearch]);
 
   return (
     <div className="space-y-4">

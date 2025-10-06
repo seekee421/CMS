@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { cookies } from "next/headers";
 
 function getApiBase() {
@@ -19,12 +19,13 @@ async function buildAuthHeader(): Promise<Record<string, string>> {
   }
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const apiBase = getApiBase();
     const authHeader = await buildAuthHeader();
     const headers: HeadersInit = { Accept: "application/json", ...authHeader };
-    const resp = await fetch(`${apiBase}/api/documents/${params.id}`, { method: "GET", headers, next: { revalidate: 0 } });
+    const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "GET", headers, next: { revalidate: 0 } });
     const data = await resp.json().catch(() => null);
     if (resp.ok) return NextResponse.json(data ?? {}, { status: 200 });
     return NextResponse.json({ message: data?.message || "请求失败" }, { status: resp.status || 500 });
@@ -33,13 +34,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const apiBase = getApiBase();
     const body = await req.json().catch(() => ({}));
     const authHeader = await buildAuthHeader();
     const headers: HeadersInit = { "Content-Type": "application/json", Accept: "application/json", ...authHeader };
-    const resp = await fetch(`${apiBase}/api/documents/${params.id}`, { method: "PUT", headers, body: JSON.stringify(body ?? {}) });
+    const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "PUT", headers, body: JSON.stringify(body ?? {}) });
     const data = await resp.json().catch(() => null);
     if (resp.ok) return NextResponse.json(data ?? {}, { status: 200 });
     return NextResponse.json({ message: data?.message || "更新失败" }, { status: resp.status || 500 });
@@ -48,12 +50,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const apiBase = getApiBase();
     const authHeader = await buildAuthHeader();
     const headers: HeadersInit = { Accept: "application/json", ...authHeader };
-    const resp = await fetch(`${apiBase}/api/documents/${params.id}`, { method: "DELETE", headers });
+    const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "DELETE", headers });
     if (resp.ok) return NextResponse.json({ success: true }, { status: 200 });
     const data = await resp.json().catch(() => null);
     return NextResponse.json({ message: data?.message || "删除失败" }, { status: resp.status || 500 });

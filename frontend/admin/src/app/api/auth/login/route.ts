@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       // 非 200，返回后端错误信息
       const errData = await backendRes.json().catch(() => ({}));
       return NextResponse.json({ message: errData?.message || "登录失败" }, { status: backendRes.status || 500 });
-    } catch (backendError) {
+    } catch {
       // 后端不可用时：契约一致的 mock 回退
       const mockUser = {
         id: 1,
@@ -75,9 +75,10 @@ export async function POST(req: Request) {
 
       return res;
     }
-  } catch (e) {
+  } catch (e: unknown) {
+    const msg = (e as { message?: string })?.message || "未知错误";
     return NextResponse.json(
-      { message: "登录失败", error: (e as Error).message },
+      { message: "登录失败", error: msg },
       { status: 500 }
     );
   }

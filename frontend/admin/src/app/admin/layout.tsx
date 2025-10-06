@@ -3,9 +3,6 @@ import Sidebar, { type MenuGroup } from "../../components/Sidebar";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-function hasRole(roles: string[] | undefined, role: string) {
-  return Array.isArray(roles) && roles.includes(role);
-}
 
 async function getRoles(): Promise<string[]> {
   const cookieStore = await cookies();

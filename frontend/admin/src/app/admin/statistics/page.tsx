@@ -26,8 +26,9 @@ export default function StatisticsPage() {
       // 后端约定的系统统计接口
       const data = await getJSON<SystemStats>("/api/statistics/system");
       setStats(data);
-    } catch (e: any) {
-      setError(e?.message || "加载失败，请稍后重试");
+    } catch (e: unknown) {
+    const msg = (e as { message?: string })?.message || "加载失败";
+    setError(msg);
     } finally {
       setLoading(false);
     }

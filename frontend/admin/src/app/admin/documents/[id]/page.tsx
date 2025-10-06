@@ -31,8 +31,9 @@ export default function DocumentPreviewPage() {
         const data = await resp.json();
         if (!resp.ok) throw new Error(data?.message || "加载失败");
         setDoc(data ?? null);
-      } catch (e: any) {
-        setError(e?.message || "网络错误");
+      } catch (e: unknown) {
+        const msg = (e as { message?: string })?.message || "网络错误";
+        setError(msg);
       } finally {
         setLoading(false);
       }
