@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@ant-design/plots": "^2.6.5",
+    "antd": "^5.27.4"
+  }
+}

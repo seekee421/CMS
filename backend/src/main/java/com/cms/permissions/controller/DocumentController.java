@@ -102,7 +102,7 @@ public class DocumentController {
 
     // 批量操作端点：DELETE / PUBLISH / UPDATE_STATUS
     @PostMapping("/batch")
-    @PreAuthorize("hasAuthority('DOC:BATCH')")
+    @PreAuthorize("hasAuthority('" + com.cms.permissions.util.PermissionConstants.DOC_BATCH + "')")
     public ResponseEntity<BatchOperationResult> batchOperate(
             @Valid @RequestBody BatchOperationRequest request,
             Principal principal) {

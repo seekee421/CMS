@@ -11,6 +11,9 @@ public class PermissionConstants {
     public static final String DOC_CREATE = "DOC:CREATE";
     public static final String DOC_DELETE = "DOC:DELETE";
     public static final String DOC_ASSIGN = "DOC:ASSIGN";
+    // 新增：批量与状态更新
+    public static final String DOC_STATUS_UPDATE = "DOC:STATUS:UPDATE";
+    public static final String DOC_BATCH = "DOC:BATCH";
 
     // Comment permissions
     public static final String COMMENT_CREATE = "COMMENT:CREATE";

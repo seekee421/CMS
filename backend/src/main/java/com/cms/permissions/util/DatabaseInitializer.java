@@ -45,8 +45,12 @@ public class DatabaseInitializer implements CommandLineRunner {
             new Permission("DOC:APPROVE:ALL", "Approve all documents"),
             new Permission("DOC:APPROVE:ASSIGNED", "Approve assigned documents"),
             new Permission("DOC:VIEW:LOGGED", "View documents when logged in"),
+            new Permission("DOC:VIEW:LIST", "View documents list"),
             new Permission("DOC:DOWNLOAD", "Download documents"),
             new Permission("DOC:ASSIGN", "Assign users to documents"),
+            // 新增：批量与状态更新权限
+            new Permission("DOC:BATCH", "Batch operations on documents"),
+            new Permission("DOC:STATUS:UPDATE", "Update document status"),
             new Permission("COMMENT:CREATE", "Create comments"),
             new Permission("COMMENT:MANAGE", "Manage comments"),
             new Permission("USER:MANAGE:SUB", "Manage sub-admins and editors"),
@@ -56,6 +60,15 @@ public class DatabaseInitializer implements CommandLineRunner {
             new Permission("USER:UPDATE", "Update users"),
             new Permission("USER:DELETE", "Delete users"),
             new Permission("USER:STATUS:UPDATE", "Update user status"),
+            // Role & Permission management permissions
+            new Permission("ROLE:READ", "Read roles"),
+            new Permission("ROLE:CREATE", "Create roles"),
+            new Permission("ROLE:UPDATE", "Update roles"),
+            new Permission("ROLE:DELETE", "Delete roles"),
+            new Permission("PERMISSION:READ", "Read permissions"),
+            new Permission("PERMISSION:CREATE", "Create permissions"),
+            new Permission("PERMISSION:UPDATE", "Update permissions"),
+            new Permission("PERMISSION:DELETE", "Delete permissions"),
             // Audit permissions
             new Permission("AUDIT:READ", "Read audit logs")
         );
@@ -76,11 +89,11 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         createRoleIfNotExists("ROLE_SUB_ADMIN", "Sub Administrator with limited permissions",
             "DOC:CREATE", "DOC:EDIT", "DOC:PUBLISH", "DOC:APPROVE:ASSIGNED",
-            "DOC:VIEW:LOGGED", "DOC:DOWNLOAD", "DOC:ASSIGN", "COMMENT:CREATE",
+            "DOC:VIEW:LOGGED", "DOC:VIEW:LIST", "DOC:DOWNLOAD", "DOC:ASSIGN", "COMMENT:CREATE",
             "COMMENT:MANAGE", "USER:MANAGE:EDITOR", "USER:READ");
 
         createRoleIfNotExists("ROLE_EDITOR", "Editor with document editing permissions",
-            "DOC:EDIT", "DOC:PUBLISH", "DOC:VIEW:LOGGED", "DOC:DOWNLOAD",
+            "DOC:EDIT", "DOC:PUBLISH", "DOC:VIEW:LOGGED", "DOC:VIEW:LIST", "DOC:DOWNLOAD",
             "COMMENT:CREATE", "COMMENT:MANAGE", "USER:READ");
 
         createRoleIfNotExists("ROLE_USER", "Regular user with viewing permissions",
@@ -135,9 +148,12 @@ public class DatabaseInitializer implements CommandLineRunner {
     private String[] getAllPermissionCodes() {
         return new String[] {
             "DOC:CREATE", "DOC:EDIT", "DOC:PUBLISH", "DOC:DELETE", "DOC:APPROVE:ALL",
-            "DOC:APPROVE:ASSIGNED", "DOC:VIEW:LOGGED", "DOC:DOWNLOAD", "DOC:ASSIGN",
+            "DOC:APPROVE:ASSIGNED", "DOC:VIEW:LOGGED", "DOC:VIEW:LIST", "DOC:DOWNLOAD", "DOC:ASSIGN", "DOC:BATCH", "DOC:STATUS:UPDATE", 
             "COMMENT:CREATE", "COMMENT:MANAGE", "USER:MANAGE:SUB", "USER:MANAGE:EDITOR", "USER:READ",
             "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:STATUS:UPDATE",
+            // Role & Permission management permissions
+            "ROLE:READ", "ROLE:CREATE", "ROLE:UPDATE", "ROLE:DELETE",
+            "PERMISSION:READ", "PERMISSION:CREATE", "PERMISSION:UPDATE", "PERMISSION:DELETE",
             // Audit permissions
             "AUDIT:READ"
         };

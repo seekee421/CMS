@@ -148,7 +148,7 @@ public class DocumentService {
     }
 
     // 独立的状态更新方法，供批量操作使用
-    @PreAuthorize("hasAuthority('DOC:STATUS:UPDATE') OR hasPermission(#documentId, 'document', 'DOC:EDIT')")
+    @PreAuthorize("hasAuthority('" + com.cms.permissions.util.PermissionConstants.DOC_STATUS_UPDATE + "') OR hasPermission(#documentId, 'document', '" + com.cms.permissions.util.PermissionConstants.DOC_EDIT + "')")
     public Document updateDocumentStatus(Long documentId, Document.DocumentStatus status) {
         Document existingDocument = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
