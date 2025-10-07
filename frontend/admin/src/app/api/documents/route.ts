@@ -1,0 +1,159 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+function getApiBase() {
+  return process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+}
+
+async function buildAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("session");
+    if (!session?.value) return {};
+    const parsed = JSON.parse(Buffer.from(session.value, "base64").toString("utf-8"));
+    const token: string | null = parsed?.token ?? null;
+    if (token) return { Authorization: `Bearer ${token}` };
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+function hasArrayProp<K extends string>(obj: unknown, key: K): obj is Record<K, unknown[]> {
+  return isRecord(obj) && Array.isArray((obj as Record<string, unknown>)[key] as unknown[]);
+}
+function readNumber(obj: Record<string, unknown>, keys: string[], fallback: number): number {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return fallback;
+}
+
+function normalizeListResponse(json: unknown) {
+  if (hasArrayProp(json, "content")) {
+    return json;
+  }
+  if (hasArrayProp(json, "items")) {
+    const obj = json as Record<string, unknown>;
+    const items = obj["items"] as unknown[];
+    const total: number = readNumber(obj, ["total", "totalElements", "count"], items.length);
+    const page: number = readNumber(obj, ["page", "number"], 0);
+    const size: number = readNumber(obj, ["size", "pageSize", "limit"], items.length);
+    const totalPages = size > 0 ? Math.ceil(total / size) : 1;
+    return {
+      content: items,
+      totalElements: total,
+      totalPages,
+      size,
+      number: page,
+      first: page === 0,
+      last: page + 1 >= totalPages,
+      empty: items.length === 0,
+    };
+  }
+  if (Array.isArray(json)) {
+    const content = json as unknown[];
+    return {
+      content,
+      totalElements: content.length,
+      totalPages: 1,
+      size: content.length,
+      number: 0,
+      first: true,
+      last: true,
+      empty: content.length === 0,
+    };
+  }
+  return json;
+}
+
+export async function GET(req: Request) {
+  try {
+    const apiBase = getApiBase();
+    const url = new URL(req.url);
+    const qs = url.search ? url.search : "";
+    const backendURL = `${apiBase}/api/documents/page${qs}`;
+    const authHeader = await buildAuthHeader();
+    const headers: HeadersInit = {
+      Accept: "application/json",
+      ...authHeader,
+    };
+    const resp = await fetch(backendURL, { method: "GET", headers, next: { revalidate: 0 } });
+    const data = await resp.json().catch(() => null);
+    if (resp.ok) {
+      return NextResponse.json(normalizeListResponse(data ?? {}), { status: 200 });
+    }
+    if (resp.status === 403) {
+      return NextResponse.json(
+        {
+          message: data?.message || "权限不足：需要 DOC:VIEW:LIST。请联系管理员为你的角色分配该权限。",
+          requiredPermission: "DOC:VIEW:LIST",
+          code: 403,
+        },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ message: data?.message || `请求失败（状态码 ${resp.status}）` }, { status: resp.status || 500 });
+  } catch (e) {
+    return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
+  }
+}
+
+export async function POST(req: Request) {
+  const apiBase = getApiBase();
+  const body = await req.json().catch(() => ({}));
+
+  // 尝试调用后端
+  try {
+    const authHeader = await buildAuthHeader();
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...authHeader,
+    };
+    const resp = await fetch(`${apiBase}/api/documents`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body ?? {}),
+    });
+    const data = await resp.json().catch(() => null);
+    if (resp.ok) {
+      return NextResponse.json(data ?? {}, { status: 200 });
+    }
+    if (resp.status === 403) {
+      return NextResponse.json(
+        { message: data?.message || "权限不足：需要 DOC:CREATE。请联系管理员为你的角色分配该权限。", requiredPermission: "DOC:CREATE", code: 403 },
+        { status: 403 }
+      );
+    }
+    // 非 403 错误，进行契约一致的 mock 回退（仅当具备创建权限）
+    const cookieStore = await cookies();
+    const session = cookieStore.get("session");
+    const parsed = session?.value ? JSON.parse(Buffer.from(session.value, "base64").toString("utf-8")) : {};
+    const roles: string[] = Array.isArray(parsed?.roles) ? parsed.roles : Array.isArray(parsed?.user?.roles) ? parsed.user.roles : [];
+    const canCreate = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_EDITOR");
+    if (canCreate) {
+      const mockId = Math.floor(100000 + Math.random() * 900000);
+      return NextResponse.json({ id: mockId, ...(body ?? {}) }, { status: 200 });
+    }
+    return NextResponse.json({ message: data?.message || "创建失败" }, { status: resp.status || 500 });
+  } catch (e) {
+    // 网络异常，契约一致的 mock 回退（仅当具备创建权限）
+    try {
+      const cookieStore = await cookies();
+      const session = cookieStore.get("session");
+      const parsed = session?.value ? JSON.parse(Buffer.from(session.value, "base64").toString("utf-8")) : {};
+      const roles: string[] = Array.isArray(parsed?.roles) ? parsed.roles : Array.isArray(parsed?.user?.roles) ? parsed.user.roles : [];
+      const canCreate = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_EDITOR");
+      if (canCreate) {
+        const mockId = Math.floor(100000 + Math.random() * 900000);
+        return NextResponse.json({ id: mockId, ...(body ?? {}) }, { status: 200 });
+      }
+    } catch {}
+    return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
+  }
+}

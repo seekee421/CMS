@@ -1,5 +1,174 @@
 # CMS文档中心开发文档
 
+更新：
+1. 新项目骨架与基础设施
+- 技术栈：Next.js 14+（App Router）、TypeScript、Tailwind CSS、shadcn/ui、TanStack Query（或 SWR）用于数据获取与缓存。
+- 代码质量：ESLint + Prettier + Husky；CI 保持与现仓一致。
+- 目录建议：在 frontend 目录admin下开始Nextjs和Shadcn-ui的新项目，并作为唯一的后台代码源（现 frontend/admin 已清空仅作占位）；
+- 契约保持：沿用现有后端 Spring Boot 登录接口与角色命名（ROLE_*），响应 DTO 合同优先。
+2. 鉴权与角色守卫
+- 登录后将 JWT 或 Session 保存在 HttpOnly Cookie（由 Next.js Route Handler 设置），前端不直接持 token，减少 XSS 风险。
+- 中间件保护 /admin 下的页面（未登录重定向到 /login）；角色守卫在客户端 Layout 中做二次拦截（UI过滤 + 路由守卫）。
+- 角色命名保持统一（ROLE_ADMIN/ROLE_EDITOR/ROLE_USER），避免再次出现“命名不一致”问题。
+3. 布局与菜单交互（遵循UI设计规范）
+- Sidebar 使用 shadcn/ui（与 Radix primitives），标题和箭头动作分离：标题点击跳默认页，箭头控制展开，不会相互干扰。
+- 菜单项在 UI 层做过滤（根据 roles），并有路由守卫兜底。始终保持“三层防线”。
+4. 页面结构映射
+- /admin/dashboard（仪表板）
+- /admin/documents（文档管理，含列表、编辑器、预览、版本）
+- /admin/categories（分类管理）
+- /admin/users（用户列表，含角色与权限子页）
+- /admin/statistics（统计分析）
+- /admin/settings（系统设置）
+5. 数据访问与契约
+- API 客户端：统一 axios 封装（拦截器加上 Cookie），错误处理、重试策略一致。
+- 登录响应必须包含 roles；mock 回退与后端契约完全一致（这点吸收之前的经验）。
+6. 测试与验证
+- 端到端用 Playwright（可选）；单元测试用 Vitest。
+- 后端测试仍使用 application-test.properties 与 @Profile("test")；不改后端启动方式、不破坏 Redis 组件，一切在真实环境下验证。
+
+7. 重启与迁移规范（admin-next）
+- 分支策略：启用 feature/admin-next 分支开发，严格走 PR 审核与 CI 校验，不允许直接推主干；每个模块（Dashboard/Users/Documents 等）独立 PR，便于回滚。
+- 保留旧版：现有 frontend/admin 已清空，仅保留目录占位；兜底环境不再依赖旧版，发布前由 nginx 或路由将 /admin 指向 admin-next（预发/生产）。
+- 新技术栈与目录：在 frontend 并行新建 admin-next（Next.js 14+ App Router、TypeScript、Tailwind、shadcn/ui、TanStack Query 或 SWR、ESLint+Prettier+Husky）。
+- 契约优先：沿用后端 Spring Boot 登录接口与角色命名（ROLE_ADMIN/ROLE_EDITOR/ROLE_USER）；响应 DTO 必含 roles（字符串数组）、user 基本信息，mock 回退与后端契约完全一致，禁止非标准角色名。
+- 鉴权策略：
+  - 登录成功由 Next.js Route Handler 设置 HttpOnly Cookie（前端不直接持 token，降低 XSS 风险）。
+  - 使用 Middleware 保护 /admin* 路由（未登录重定向 /login），在客户端 Layout 做二次角色守卫（UI 过滤 + 路由守卫）。
+- 菜单交互：Sidebar 采用 shadcn/ui + Radix；标题点击跳默认页，箭头控制展开，两者动作分离；非权限项在 UI 层直接隐藏，并由路由守卫兜底。
+- 数据访问：统一 axios 封装（自动附带 Cookie、错误处理、重试策略）；结合 TanStack Query 管理缓存、加载态、错误态；接口失败时使用契约一致的 mock。
+- 安全与测试红线：
+  - 使用 application-test.properties 与 @Profile("test")；不改变后端启动方式，不破坏 Redis 组件；杜绝任何 H2 的相关设想。
+  - 不注释或删除生产组件；测试与生产最大程度一致，所有安全注解状态纳入代码审查清单与自动化测试。
+  - 后端 Java 程序由你常驻启动，避免命令行频繁重启导致接口变化；前端仅通过代理路由接入。
+- 三层防线：菜单显示过滤（UI）+ 前端路由守卫 + 后端 @PreAuthorize，任一层失败其他层兜底。
+- 迁移里程碑：
+  1) 基础骨架与登录态闭环（/login、/api/auth/login、/api/auth/me、Middleware）。
+  2) /admin/layout 与 Sidebar 权限过滤、点击/箭头分离；Dashboard 首屏。
+  3) Users 与 Roles 管理迁移（只读列表 -> CRUD）；统一角色命名与可视化权限矩阵。
+  4) Documents 模块：列表、Monaco/Markdown 编辑器、版本历史、预览。
+  5) Categories：树形结构、拖拽排序、权限设置。
+  6) Statistics：访问/下载统计与图表；DownloadTracker 接入。
+  7) Settings：系统配置与多语言开关；与 Docusaurus 门户接口对齐。
+- 验收与发布：每个里程碑完成即发 PR，必须通过 ESLint/Prettier、单元测试（Vitest）、必要的 E2E（Playwright 可选）与安全审查，CI 绿灯后合并；最终通过 nginx 将 /admin 切换至 admin-next。
+
+下一步工作（建议按优先级与里程碑推进）
+
+- 里程碑 2：Admin Layout 与 Sidebar 权限过滤与交互完善（标题点击与箭头展开分离；UI层过滤非权限菜单项；路由守卫兜底）
+  - 交付物：侧边栏组件与交互完善、角色过滤生效；基础可用 E2E 用例（未登录重定向、不同角色菜单差异）
+- 里程碑 3：Users 模块增强（优先）
+  - 管理员重置/修改用户密码的前端表单与交互（已有后端契约与路由代理），邀请用户与角色矩阵可视化
+  - 交付物：用户列表 CRUD 完整、重置密码/邀请用户操作闭环、Vitest 单元测试与必要 E2E
+  - 已有路由代理参考： `route.ts` `route.ts` `route.ts`
+- 里程碑 4：Documents 在线编辑器
+  - 实现 Markdown 在线编辑与实时预览、代码高亮（shell/sql/java/c/c++/python/php 等）、表格美化、媒体插入、20MB 文件 3 秒内响应策略（分片上传+并发、断点续传、压缩/预处理、缓存优化）
+  - 交付物：编辑器组件、保存与版本历史、版本比较、媒体上传；后端 EditorController/Service 与契约联调；E2E：编辑保存与版本、媒体上传
+- 里程碑 5：全文检索与高亮
+  - 标题+内容检索、高亮与内容块定位；预留 ES 接口，先以 MySQL FTS 落地并保证生产可用性
+  - 交付物：搜索 API 与 UI、跳转定位准确、性能达标；可切换至 ES 接口
+- 里程碑 6：分类模块（树形/拖拽/批量/权限）
+- 里程碑 7：统计与可视化（访问/下载、聚合、图表）
+- 里程碑 8：设置与多语言；与 Docusaurus 门户对齐样式与国际化
+- 里程碑 9：文档导入/导出/备份/迁移与反馈系统（分批次落地）
+
+
+
+          
+
+        
+            
+toolName: todo_write
+            
+status: success
+          
+Todos updated: 13 items
+          
+
+        
+            
+toolName: search_by_regex
+            
+status: success
+          
+query: doc_tester
+          
+
+        
+            
+toolName: search_by_regex
+            
+status: success
+          
+query: admin123|tester123|Doc123|Doc_tester|doc_tester|testuser|testapi|password
+          
+好的，现状和需求我来逐一回应：
+
+1) 登录状态
+- 你现在已经可以正常登录并跳转到后台仪表板，这一闭环已打通。后续我会继续用 Playwright 做未登录重定向、角色菜单过滤等用例的回归，确保不会回退。
+
+2) doc_tester 的登录密码
+- 我在仓库中没有找到任何硬编码的 doc_tester 默认密码或初始化脚本记录，说明该账号不是通过初始化 SQL/脚本创建的默认用户，而是后续在系统中创建的，密码不可见且无法从数据库哈希反推。建议按安全流程做“重置密码/找回密码”，而不是尝试猜测：
+  - 管理员在后台用户管理页为 doc_tester 执行“重置密码”（如果当前 UI 没有按钮，会在下一迭代加入“重置密码/邀请用户”功能）参考的接口契约见 <mcfile name="api.ts" path="/Users/fanyang/Desktop/CMS/frontend/shared/src/types/api.ts"></mcfile>
+  - 已有后端契约通常包括：
+    - 重置与找回：PASSWORD_RESET、PASSWORD_RESET_CONFIRM
+    - 管理员修改用户密码：CHANGE_PASSWORD（PUT /users/{id}/password）
+    这些常量在共享类型里已预留，你可以直接用它们触发后端流程，避免直接操作数据库或破坏生产组件。参考 <mcfile name="api.ts" path="/Users/fanyang/Desktop/CMS/frontend/shared/src/types/api.ts"></mcfile>
+- 如果你需要我现在就为 doc_tester 发起一次“重置密码”流程，请告诉我该用户的邮箱或用户 ID，我会按契约调用后端接口完成操作。再次强调，出于安全与一致性，不建议猜密码或直接改数据库。
+
+3) 管理后台后续开发计划（admin-next）
+- 总体原则
+  - 契约优先：沿用后端 Spring Boot 登录接口与角色命名（ROLE_ADMIN/ROLE_EDITOR/ROLE_USER），响应 DTO 必含 roles 与基本用户信息。
+  - 三层防线：UI 菜单过滤 + 前端路由守卫 + 后端 @PreAuthorize，任一层失败其他层兜底。
+  - 安全与测试：使用 application-test.properties 与 @Profile("test")；不改后端启动方式、不破坏 Redis；通过 Vitest/Playwright 回归。
+  - 分支与发布：严格走 feature/admin-next 分支 + PR 审核 + CI 校验；每模块独立 PR，便于回滚。
+- 迭代里程碑与验收
+  1) 已完成/进行中：登录态闭环
+     - /api/auth/login、/api/auth/me 契约对齐；Middleware 保护 /admin*；HttpOnly Cookie 承载会话；SSR 读取 Cookie 做角色守卫
+     - 验收：未登录访问 /admin 重定向 /login，登录成功自动跳转到 /admin/dashboard，角色能正确过滤菜单
+     - 参考实现文件：<mcfile name="AuthController.java" path="/Users/fanyang/Desktop/CMS/backend/src/main/java/com/cms/permissions/controller/AuthController.java"></mcfile> <mcfile name="page.tsx" path="/Users/fanyang/Desktop/CMS/frontend/admin/src/app/login/page.tsx"></mcfile> <mcfile name="middleware.ts" path="/Users/fanyang/Desktop/CMS/frontend/admin/src/middleware.ts"></mcfile>
+  2) /admin/layout 与 Sidebar 权限过滤、点击/箭头分离
+     - 使用 shadcn/ui + Radix；标题点击跳默认页，箭头控制展开；UI 层按 roles 过滤
+     - 验收：不同角色菜单显示差异正确；禁止无权入口显示；路由守卫兜底
+  3) Users 模块（下一迭代优先）
+     - 列表 -> CRUD；角色与权限矩阵；“重置密码/邀请用户”
+     - 验收：新增/编辑/删除用户稳定；角色矩阵可视化且一致；管理员可重置其他用户密码
+     - 合同与类型参考：<mcfile name="api.ts" path="/Users/fanyang/Desktop/CMS/frontend/shared/src/types/api.ts"></mcfile>
+  4) Documents 模块
+     - Markdown/Monaco 编辑器、实时预览、版本历史、版本比较、媒体上传（要求 20MB/3s 响应）
+     - 验收：编辑保存稳定；版本历史可用；大文件上传秒开与断点续传策略
+     - 后端接口骨架参考：<mcfile name="AuthController.java" path="/Users/fanyang/Desktop/CMS/backend/src/main/java/com/cms/permissions/controller/AuthController.java"></mcfile>（登录契约），新的 Editor/Version 控制器将在对应后端模块新增
+  5) Categories 模块
+     - 树形结构展示、拖拽排序、批量移动、分类权限设置
+     - 验收：拖拽交互流畅；权限设置与三层防线一致
+  6) 全文搜索
+     - 标题+内容检索、结果高亮、内容块定位；预留 Elasticsearch 接口
+     - 验收：MySQL FTS 在生产库表现稳定；ES 接口切换透明；高亮与跳转准确
+  7) Statistics 模块
+     - 访问/下载统计：按日/周/月聚合；仪表板图表与排行榜
+     - 验收：数据一致性与性能达标；下载统计与 DownloadTracker 接入
+  8) Settings 模块与多语言
+     - 系统配置与多语言开关；与 Docusaurus 门户接口对齐
+     - 验收：多语言切换不影响权限；门户与后台版本/语言一致
+  9) 反馈系统
+     - DocumentFeedback：问题类型、意见描述、联系方式；后台处理流转
+     - 验收：表单校验与防滥用；处理状态可追踪
+- 横向支撑与质量保障
+  - 统一 API 客户端：axios 拦截器（附带 Cookie、错误重试），结合 TanStack Query 管理缓存、加载态、错误态；接口失败时用契约一致的 mock 回退。参考 <mcfile name="api.ts" path="/Users/fanyang/Desktop/CMS/frontend/shared/src/types/api.ts"></mcfile>
+  - 测试体系：
+    - 单元：Vitest 覆盖 hooks、组件、API 客户端
+    - E2E：Playwright 覆盖未登录重定向、中间件、角色菜单过滤、编辑器保存与版本、搜索与统计
+  - 安全审查清单：密码强度、会话时长、HttpOnly/SameSite、CSRF 防护、@PreAuthorize 完整性、审计日志
+- 分支/PR/CI
+  - 每个模块独立 feature 子分支与 PR，PR 必须通过 ESLint/Prettier、单元测试、必要的 E2E 与安全审查
+  - 预发验证后由 nginx 或路由将 /admin 切到 admin-next，保持测试与生产一致
+
+你现在可以：
+- 告诉我 doc_tester 的邮箱或用户 ID，我按契约帮你发起一次密码重置（推荐）
+- 或者在“用户管理”里通过管理员功能为 doc_tester 重置密码（若当前 UI 未提供，将在 Users 模块迭代中补上）
+
+我们可以把“Users 模块增强（含重置密码/邀请用户）”作为下一步 in-progress 开发项，我会直接开始实现并提交到 feature/admin-next 分支，走 PR 与 CI 流程。
+        
+
 ## 项目概述
 
 基于现有的CMS权限管理系统，开发一个功能完整的在线文档中心，包括管理后台和公共文档展示前台。项目采用前后端分离架构，后端基于Spring Boot，前端采用React技术栈。
@@ -226,20 +395,20 @@ public class InternationalizationController {
 
 ### 1. 技术栈选择
 
-#### 1.1 管理后台技术栈
+#### 1.1 管理后台技术栈（admin-next）
 **核心技术**:
-- React 18+ (函数组件 + Hooks)
-- TypeScript (类型安全)
-- Ant Design (UI组件库)
-- React Router (路由管理)
-- Redux Toolkit (状态管理)
-- Axios (HTTP客户端)
-- Monaco Editor (代码编辑器)
+- Next.js 14+（App Router）
+- TypeScript（类型安全）
+- Tailwind CSS（样式体系）
+- shadcn/ui（UI 组件库，基于 Radix primitives）
+- TanStack Query 或 SWR（数据获取与缓存）
+- Axios（HTTP 客户端，统一拦截器）
+- Monaco/Markdown 编辑器（文档编辑）
 
-**构建工具**:
-- Vite (构建工具)
-- ESLint + Prettier (代码规范)
-- Husky (Git钩子)
+**构建与质量**:
+- Next.js 原生构建（Turbopack/webpack 由框架管理）
+- ESLint + Prettier（代码规范）
+- Husky（Git 钩子，配合 CI 校验）
 
 #### 1.2 文档门户技术栈 (推荐方案)
 **核心技术**:
@@ -260,48 +429,41 @@ public class InternationalizationController {
 
 ```
 frontend/
-├── admin/                    # 管理后台 (React + Ant Design)
+├── admin-next/               # 新管理后台 (Next.js + shadcn/ui)
+│   ├── app/
+│   │   ├── admin/
+│   │   │   ├── dashboard/   # 仪表板
+│   │   │   ├── documents/   # 文档管理
+│   │   │   ├── categories/  # 分类管理
+│   │   │   ├── users/       # 用户管理
+│   │   │   ├── statistics/  # 统计分析
+│   │   │   └── settings/    # 系统设置
+│   │   ├── api/
+│   │   │   └── auth/        # /api/auth/login、/api/auth/me
+│   │   └── login/           # 登录页
 │   ├── src/
-│   │   ├── components/       # 通用组件
-│   │   ├── pages/           # 页面组件
-│   │   │   ├── Dashboard/   # 仪表板
-│   │   │   ├── Documents/   # 文档管理
-│   │   │   ├── Users/       # 用户管理
-│   │   │   ├── Categories/  # 分类管理
-│   │   │   ├── Statistics/  # 统计分析
-│   │   │   └── Settings/    # 系统设置
-│   │   ├── hooks/           # 自定义Hooks
-│   │   ├── services/        # API服务
-│   │   ├── store/           # Redux状态管理
-│   │   ├── utils/           # 工具函数
-│   │   └── types/           # TypeScript类型定义
-│   ├── public/
+│   │   ├── components/      # 通用组件（Sidebar、RoleGuard 等）
+│   │   ├── lib/             # axios 客户端、query 工具
+│   │   ├── hooks/           # 自定义 Hooks
+│   │   ├── types/           # TypeScript 类型定义
+│   │   └── utils/           # 工具函数
+│   ├── middleware.ts        # 保护 /admin* 路由
+│   ├── tailwind.config.ts   # Tailwind 配置
 │   └── package.json
+├── admin/                    # 旧管理后台目录（已清空，占位）
 ├── docs-portal/              # 文档门户 (Docusaurus)
-│   ├── docs/                # 文档内容 (Markdown)
-│   │   ├── product-a/       # 产品A文档
-│   │   ├── product-b/       # 产品B文档
-│   │   └── common/          # 通用文档
+│   ├── docs/
 │   ├── src/
-│   │   ├── components/      # 自定义React组件
-│   │   │   ├── FeedbackButton/  # 反馈按钮
-│   │   │   ├── VersionSelector/ # 版本选择器
-│   │   │   ├── DownloadTracker/ # 下载统计
-│   │   │   └── SearchHighlight/ # 搜索高亮
-│   │   ├── pages/           # 自定义页面
-│   │   ├── css/             # 样式文件
-│   │   └── theme/           # 主题定制
-│   ├── static/              # 静态资源
-│   ├── versioned_docs/      # 版本化文档
-│   ├── versioned_sidebars/  # 版本化侧边栏
-│   ├── docusaurus.config.js # 配置文件
-│   ├── sidebars.js          # 侧边栏配置
+│   ├── static/
+│   ├── docusaurus.config.ts
 │   └── package.json
 └── shared/                   # 共享代码
-    ├── api/                 # API客户端
-    ├── types/               # 共享类型
-    └── utils/               # 共享工具
+    ├── api/
+    ├── types/
+    └── utils/
 ```
+
+> 重要说明：由于旧版 frontend/admin 已清空，所有后台开发以 admin-next 为唯一代码源；路由切换与发布流程以 admin-next 为准，测试环境与生产环境保持一致，不破坏后端与 Redis 组件。
 
 ### 3. 管理后台功能模块
 

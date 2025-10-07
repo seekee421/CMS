@@ -56,19 +56,23 @@ public class AuthController {
             // 每日错误次数预检：当日达到上限则直接返回429，阻断后续认证与审计
             String username = loginRequest.getUsername();
             if (redisTemplate != null) {
-                String failedKey = failedKeyForToday(username);
-                Object val = redisTemplate.opsForValue().get(failedKey);
-                long failed = 0L;
-                if (val instanceof Number) {
-                    failed = ((Number) val).longValue();
-                } else if (val != null) {
-                    try { failed = Long.parseLong(val.toString()); } catch (NumberFormatException ignore) {}
-                }
-                if (failed >= maxWrongAttemptsPerDay) {
-                    Map<String, Object> errorResponse = new HashMap<>();
-                    errorResponse.put("success", false);
-                    errorResponse.put("message", "当日密码错误次数已达上限，请明天再试");
-                    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+                try {
+                    String failedKey = failedKeyForToday(username);
+                    Object val = redisTemplate.opsForValue().get(failedKey);
+                    long failed = 0L;
+                    if (val instanceof Number) {
+                        failed = ((Number) val).longValue();
+                    } else if (val != null) {
+                        try { failed = Long.parseLong(val.toString()); } catch (NumberFormatException ignore) {}
+                    }
+                    if (failed >= maxWrongAttemptsPerDay) {
+                        Map<String, Object> errorResponse = new HashMap<>();
+                        errorResponse.put("success", false);
+                        errorResponse.put("message", "当日密码错误次数已达上限，请明天再试");
+                        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse);
+                    }
+                } catch (Exception ex) {
+                    System.out.println("Redis pre-check unavailable: " + ex.getMessage());
                 }
             }
             
@@ -107,7 +111,11 @@ public class AuthController {
             userInfo.put("id", user.getId());
             userInfo.put("username", user.getUsername());
             userInfo.put("email", user.getEmail());
-            // 暂时不包含roles，避免序列化问题
+            // 新增：返回角色名数组（例如：["ROLE_ADMIN","ROLE_USER"]）
+            java.util.List<String> roleNames = user.getRoles().stream()
+                .map(r -> r.getName())
+                .collect(java.util.stream.Collectors.toList());
+            userInfo.put("roles", roleNames);
             response.put("user", userInfo);
 
             System.out.println("Response prepared successfully");

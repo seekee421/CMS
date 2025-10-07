@@ -446,8 +446,8 @@ export type Length<T extends any[]> = T['length'];
 export type Reverse<T extends any[]> = T extends [...infer Rest, infer Last] ? [Last, ...Reverse<Rest>] : [];
 
 // 类型守卫
-export type TypeGuard<T> = (value: any) => boolean;
-export type AsyncTypeGuard<T> = (value: any) => Promise<boolean>;
+export type TypeGuard<T> = (value: any) => value is T;
+export type AsyncTypeGuard<T> = ((value: any) => Promise<boolean>) & { __type?: T };
 
 // 构造函数类型
 export type Constructor<T = {}> = new (...args: any[]) => T;
