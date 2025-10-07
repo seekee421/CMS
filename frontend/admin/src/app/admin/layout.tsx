@@ -37,18 +37,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     {
       label: "文档管理",
       defaultHref: "/admin/documents",
-      roles: ["ROLE_EDITOR", "ROLE_ADMIN", "ROLE_SUB_ADMIN"],
+      roles: ["ROLE_EDITOR", "ROLE_ADMIN"],
       children: [
-        { label: "文档列表", href: "/admin/documents", roles: ["ROLE_EDITOR", "ROLE_ADMIN", "ROLE_SUB_ADMIN"] },
+        { label: "文档列表", href: "/admin/documents", roles: ["ROLE_EDITOR", "ROLE_ADMIN"] },
         { label: "新建文档", href: "/admin/documents/new", roles: ["ROLE_EDITOR", "ROLE_ADMIN"] },
       ],
     },
     {
       label: "分类管理",
       defaultHref: "/admin/categories",
-      roles: ["ROLE_EDITOR", "ROLE_ADMIN", "ROLE_SUB_ADMIN"],
+      roles: ["ROLE_EDITOR", "ROLE_ADMIN"],
       children: [
-        { label: "分类树", href: "/admin/categories", roles: ["ROLE_EDITOR", "ROLE_ADMIN", "ROLE_SUB_ADMIN"] },
+        { label: "分类树", href: "/admin/categories", roles: ["ROLE_EDITOR", "ROLE_ADMIN"] },
       ],
     },
     {

@@ -64,11 +64,18 @@ export default function DocumentsPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [batchStatus, setBatchStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED">("DRAFT");
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignTargetId, setAssignTargetId] = useState<number | null>(null);
+  const [assignUserId, setAssignUserId] = useState<string>("");
   const isAdmin = useMemo(() => roles.includes("ROLE_ADMIN"), [roles]);
   const hasPerm = useCallback((p: string) => permissions.includes(p), [permissions]);
   const canPublish = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:PUBLISH"), [isAdmin, roles, hasPerm]);
   const canUpdateStatus = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:EDIT"), [isAdmin, roles, hasPerm]);
   const canDelete = useMemo(() => isAdmin || hasPerm("DOC:DELETE"), [isAdmin, hasPerm]);
+  const canApprove = useMemo(() => isAdmin || hasPerm("DOC:APPROVE"), [isAdmin, hasPerm]);
+  const canAssign = useMemo(() => isAdmin || hasPerm("DOC:ASSIGN"), [isAdmin, hasPerm]);
+  const canCreate = useMemo(() => isAdmin || roles.includes("ROLE_EDITOR") || hasPerm("DOC:CREATE"), [isAdmin, roles, hasPerm]);
   useEffect(() => {
     (async () => {
       try {
@@ -131,6 +138,70 @@ export default function DocumentsPage() {
       setBatchLoading(false);
     }
   };
+
+  const postDocAction = async (url: string, body?: Record<string, unknown>) => {
+    try {
+      const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+      const data: unknown = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const perm = isRecord(data) && typeof data.requiredPermission === "string" ? data.requiredPermission : undefined;
+        const msg = isRecord(data) && typeof data.message === "string" ? data.message : resp.status === 403 ? `权限不足${perm ? `（需要 ${perm}）` : ""}` : "操作失败";
+        throw new Error(msg);
+      }
+      return data;
+    } catch (e: unknown) {
+      throw e;
+    }
+  };
+
+  const publishDoc = async (id: number) => {
+    setActionLoadingId(id);
+    try {
+      await postDocAction(`/api/documents/${id}/publish`);
+      showToast("发布成功");
+      fetchDocuments();
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "发布失败";
+      showToast(msg);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const approveDoc = async (id: number) => {
+    setActionLoadingId(id);
+    try {
+      await postDocAction(`/api/documents/${id}/approve`);
+      showToast("审批通过");
+      fetchDocuments();
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "审批失败";
+      showToast(msg);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const submitAssign = async () => {
+    if (!assignTargetId || !assignUserId) {
+      showToast("请输入要分配的用户ID");
+      return;
+    }
+    setActionLoadingId(assignTargetId);
+    try {
+      await postDocAction(`/api/documents/${assignTargetId}/assign`, { userId: Number(assignUserId) });
+      showToast("分配成功");
+      setShowAssignDialog(false);
+      setAssignTargetId(null);
+      setAssignUserId("");
+      fetchDocuments();
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "分配失败";
+      showToast(msg);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
   const visibleIds = useMemo(() => items.map((d) => d.id), [items]);
   const isAllSelectedOnPage = useMemo(() => visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id)), [visibleIds, selected]);
   const toggleSelectAllPage = () => {
@@ -185,7 +256,7 @@ export default function DocumentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">文档管理</h1>
         <div className="flex gap-2">
-          <Button onClick={() => router.push("/admin/documents/new")}>新建文档</Button>
+          {canCreate && <Button onClick={() => router.push("/admin/documents/new")}>新建文档</Button>}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={selected.length === 0 || batchLoading}>{batchLoading ? "批量处理中…" : `批量操作（${selected.length}）`}</Button>
@@ -271,7 +342,7 @@ export default function DocumentsPage() {
           {error}
           {error.includes("403") && (
             <div className="mt-2 text-xs text-muted-foreground">
-              你可能缺少访问权限：DOC:VIEW:LIST。请联系管理员为你的角色（如 ROLE_EDITOR/ROLE_SUB_ADMIN/ROLE_ADMIN）分配该权限。
+              你可能缺少访问权限：DOC:VIEW:LIST。请联系管理员为你的角色（如 ROLE_EDITOR/ROLE_ADMIN）分配该权限。
             </div>
           )}
         </div>
@@ -297,6 +368,28 @@ export default function DocumentsPage() {
                     onClick={(e) => e.stopPropagation()}
                     aria-label="选择文档"
                   />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" disabled={actionLoadingId === doc.id} onClick={(e) => e.stopPropagation()}>操作</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      {canPublish && (
+                        <DropdownMenuItem disabled={actionLoadingId === doc.id} onClick={() => publishDoc(doc.id)}>
+                          发布
+                        </DropdownMenuItem>
+                      )}
+                      {canApprove && (
+                        <DropdownMenuItem disabled={actionLoadingId === doc.id} onClick={() => approveDoc(doc.id)}>
+                          审批通过
+                        </DropdownMenuItem>
+                      )}
+                      {canAssign && (
+                        <DropdownMenuItem disabled={actionLoadingId === doc.id} onClick={() => { setAssignTargetId(doc.id); setShowAssignDialog(true); }}>
+                          分配给用户…
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardHeader>
               <Separator />
@@ -358,6 +451,24 @@ export default function DocumentsPage() {
             <div className="p-4 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>取消</Button>
               <Button className="bg-red-600 text-white hover:bg-red-700" disabled={batchLoading || selected.length === 0} onClick={async () => { await runBatch("DELETE"); setShowDeleteConfirm(false); }}>确定删除</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAssignDialog && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-background border rounded-lg shadow-lg w-[90%] max-w-sm">
+            <div className="p-4 border-b">
+              <div className="text-lg font-semibold">分配文档</div>
+              <div className="text-sm text-muted-foreground mt-1">为文档 ID {assignTargetId} 指定负责人（输入用户ID）</div>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className="text-sm">用户ID</label>
+              <Input value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} placeholder="例如：123" />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setShowAssignDialog(false); setAssignTargetId(null); setAssignUserId(""); }}>取消</Button>
+                <Button disabled={!assignUserId || !assignTargetId || actionLoadingId === assignTargetId} onClick={submitAssign}>确定</Button>
+              </div>
             </div>
           </div>
         </div>

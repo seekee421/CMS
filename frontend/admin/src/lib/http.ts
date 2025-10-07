@@ -89,6 +89,30 @@ export const getJSON = async <T>(url: string, params?: Record<string, unknown>):
           last: true,
           empty: content.length === 0,
         };
+        // 版本相关接口的契约一致 mock
+        if (url.includes("/versions")) {
+          // 列表：/api/documents/{id}/versions
+          const isDetail = /\/versions\/[^/]+$/.test(url);
+          if (!isDetail) {
+            const nowIso = new Date().toISOString();
+            const versions = [
+              { id: 1, tag: "v1.0", createdAt: nowIso },
+              { id: 2, tag: "v1.1", createdAt: nowIso },
+              { id: 3, tag: "draft", createdAt: nowIso },
+            ];
+            return versions as unknown as T;
+          }
+          // 详情：/api/documents/{id}/versions/{vid}
+          const sampleByVid: Record<string, string> = {
+            "1": "# 安装指南\n\n- 安装 Java\n- 安装 Redis\n",
+            "2": "# 安装指南（更新）\n\n- 安装 Java 17\n- 安装 Redis 7\n- 配置 Spring Boot\n",
+            "3": "# 安装指南（草稿）\n\n- 安装 Java 21\n- 安装 Redis 7.2\n- 配置 Spring Boot 与安全策略\n",
+          };
+          const vidMatch = url.match(/\/versions\/(\d+)/);
+          const vid = vidMatch?.[1] ?? "1";
+          const version = { id: Number(vid), content: sampleByVid[vid] || sampleByVid["1"], tag: vid === "3" ? "draft" : vid === "2" ? "v1.1" : "v1.0", createdAt: new Date().toISOString() };
+          return version as unknown as T;
+        }
         return mock as unknown as T;
       }
     }
@@ -97,6 +121,52 @@ export const getJSON = async <T>(url: string, params?: Record<string, unknown>):
 };
 
 export const postJSON = async <T>(url: string, body?: unknown): Promise<T> => {
-  const { data } = await http.post<T>(url, body);
-  return data;
+  try {
+    const { data } = await http.post<T>(url, body);
+    return data;
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError;
+    const status = axiosError.response?.status;
+    if (status === 403) {
+      const data = axiosError.response?.data as { message?: string; requiredPermission?: string } | undefined;
+      const message = data?.message || `Request failed with status code 403`;
+      const required = data?.requiredPermission ? `（缺少权限：${data.requiredPermission}）` : "";
+      throw new Error(`${message}${required}`);
+    }
+    throw err;
+  }
+};
+
+export const putJSON = async <T>(url: string, body?: unknown): Promise<T> => {
+  try {
+    const { data } = await http.put<T>(url, body);
+    return data;
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError;
+    const status = axiosError.response?.status;
+    if (status === 403) {
+      const data = axiosError.response?.data as { message?: string; requiredPermission?: string } | undefined;
+      const message = data?.message || `Request failed with status code 403`;
+      const required = data?.requiredPermission ? `（缺少权限：${data.requiredPermission}）` : "";
+      throw new Error(`${message}${required}`);
+    }
+    throw err;
+  }
+};
+
+export const deleteJSON = async <T>(url: string): Promise<T> => {
+  try {
+    const { data } = await http.delete<T>(url);
+    return data;
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError;
+    const status = axiosError.response?.status;
+    if (status === 403) {
+      const data = axiosError.response?.data as { message?: string; requiredPermission?: string } | undefined;
+      const message = data?.message || `Request failed with status code 403`;
+      const required = data?.requiredPermission ? `（缺少权限：${data.requiredPermission}）` : "";
+      throw new Error(`${message}${required}`);
+    }
+    throw err;
+  }
 };

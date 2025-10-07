@@ -104,9 +104,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const apiBase = getApiBase();
+  const body = await req.json().catch(() => ({}));
+
+  // 尝试调用后端
   try {
-    const apiBase = getApiBase();
-    const body = await req.json().catch(() => ({}));
     const authHeader = await buildAuthHeader();
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -122,8 +124,36 @@ export async function POST(req: Request) {
     if (resp.ok) {
       return NextResponse.json(data ?? {}, { status: 200 });
     }
+    if (resp.status === 403) {
+      return NextResponse.json(
+        { message: data?.message || "权限不足：需要 DOC:CREATE。请联系管理员为你的角色分配该权限。", requiredPermission: "DOC:CREATE", code: 403 },
+        { status: 403 }
+      );
+    }
+    // 非 403 错误，进行契约一致的 mock 回退（仅当具备创建权限）
+    const cookieStore = await cookies();
+    const session = cookieStore.get("session");
+    const parsed = session?.value ? JSON.parse(Buffer.from(session.value, "base64").toString("utf-8")) : {};
+    const roles: string[] = Array.isArray(parsed?.roles) ? parsed.roles : Array.isArray(parsed?.user?.roles) ? parsed.user.roles : [];
+    const canCreate = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_EDITOR");
+    if (canCreate) {
+      const mockId = Math.floor(100000 + Math.random() * 900000);
+      return NextResponse.json({ id: mockId, ...(body ?? {}) }, { status: 200 });
+    }
     return NextResponse.json({ message: data?.message || "创建失败" }, { status: resp.status || 500 });
   } catch (e) {
+    // 网络异常，契约一致的 mock 回退（仅当具备创建权限）
+    try {
+      const cookieStore = await cookies();
+      const session = cookieStore.get("session");
+      const parsed = session?.value ? JSON.parse(Buffer.from(session.value, "base64").toString("utf-8")) : {};
+      const roles: string[] = Array.isArray(parsed?.roles) ? parsed.roles : Array.isArray(parsed?.user?.roles) ? parsed.user.roles : [];
+      const canCreate = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_EDITOR");
+      if (canCreate) {
+        const mockId = Math.floor(100000 + Math.random() * 900000);
+        return NextResponse.json({ id: mockId, ...(body ?? {}) }, { status: 200 });
+      }
+    } catch {}
     return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
   }
 }

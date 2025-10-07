@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
+import rehypeHighlight from "rehype-highlight";
 
 interface DocumentDetail {
   id: number;
@@ -57,7 +61,9 @@ export default function DocumentPreviewPage() {
           </CardHeader>
           <CardContent>
             <div className="prose max-w-none">
-              <pre className="whitespace-pre-wrap">{doc.content || "暂无内容"}</pre>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize, rehypeHighlight]}>
+                {doc.content || "暂无内容"}
+              </ReactMarkdown>
             </div>
           </CardContent>
         </Card>

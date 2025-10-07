@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getJSON, postJSON } from "@/lib/http";
+import { getJSON, postJSON, putJSON, deleteJSON } from "@/lib/http";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 interface Role { name: string }
 interface UserItem {
@@ -27,6 +29,7 @@ interface PageResponse<T> {
 }
 
 export default function UsersPage() {
+  const router = useRouter();
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(0);
   const [size] = useState(10);
@@ -56,6 +59,16 @@ export default function UsersPage() {
   const [meRoles, setMeRoles] = useState<string[]>([]);
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // 单项操作状态
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [roleEditUserId, setRoleEditUserId] = useState<number | null>(null);
+  const [roleEditRoles, setRoleEditRoles] = useState<string[]>([]);
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<number | null>(null);
+  // 管理员修改密码对话框状态
+  const [passwordEditUserId, setPasswordEditUserId] = useState<number | null>(null);
+  const [passwordEditNew, setPasswordEditNew] = useState("");
+  const [passwordEditConfirm, setPasswordEditConfirm] = useState("");
+  const [passwordEditError, setPasswordEditError] = useState<string | null>(null);
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -75,7 +88,7 @@ export default function UsersPage() {
       const res = await postJSON<{ message?: string }>("/api/auth/password-reset", { email: user.email });
       setToastMsg(res?.message || "重置邮件已发送");
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "发送失败，请稍后重试";
+      const msg = e instanceof Error ? e.message : "发送失败，请稍后重试";
       setToastMsg(msg);
     } finally {
       setResetLoadingId(null);
@@ -109,7 +122,7 @@ export default function UsersPage() {
       setInviteEmail("");
       setInviteRoles([]);
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "邀请失败，请稍后重试";
+      const msg = e instanceof Error ? e.message : "邀请失败，请稍后重试";
       setToastMsg(msg);
     } finally {
       setInviteLoading(false);
@@ -133,7 +146,7 @@ export default function UsersPage() {
       setBatchRoles([]);
       fetchUsers();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (e as Error)?.message || "批量分配失败，请稍后重试";
+      const msg = e instanceof Error ? e.message : "批量分配失败，请稍后重试";
       setToastMsg(msg);
     } finally {
       setBatchLoading(false);
@@ -144,13 +157,20 @@ export default function UsersPage() {
     (async () => {
       try {
         const res = await getJSON<{ roles: string[] }>("/api/auth/me");
-        setMeRoles(Array.isArray(res?.roles) ? res.roles : []);
+        const roles = Array.isArray(res?.roles) ? res.roles : [];
+        setMeRoles(roles);
+        if (!roles.includes("ROLE_ADMIN")) {
+          // 非管理员兜底重定向至仪表板
+          router.replace("/admin/dashboard");
+          return;
+        }
+        await fetchUsers();
       } catch {
         setMeRoles([]);
+        router.replace("/login?redirect=/admin/users");
       }
     })();
-    fetchUsers();
-  }, [page, fetchUsers]);
+  }, [page, fetchUsers, router]);
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -178,12 +198,13 @@ export default function UsersPage() {
               placeholder="输入关键词，例如：admin、editor、user"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
+              data-testid="users-search-input"
             />
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <span>共 {totalElements ?? 0} 条</span>
               <span>第 {page + 1} / {Math.max(totalPages, 1)} 页</span>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={loading || page <= 0}>上一页</Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(Math.max(totalPages - 1, 0), p + 1))} disabled={loading || page >= Math.max(totalPages - 1, 0)}>下一页</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={loading || page <= 0} data-testid="users-page-prev">上一页</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(Math.max(totalPages - 1, 0), p + 1))} disabled={loading || page >= Math.max(totalPages - 1, 0)} data-testid="users-page-next">下一页</Button>
             </div>
           </div>
         </CardContent>
@@ -207,6 +228,7 @@ export default function UsersPage() {
                 placeholder="邮箱，例如 user@example.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
+                data-testid="invite-email-input"
               />
               <div className="flex items-center gap-3">
                 {allRoles.map((r) => (
@@ -214,12 +236,13 @@ export default function UsersPage() {
                     <Checkbox
                       checked={inviteRoles.includes(r)}
                       onChange={() => toggleInviteRole(r)}
+                      data-testid={`invite-role-${r}`}
                     />
                     <span>{r}</span>
                   </label>
                 ))}
               </div>
-              <Button onClick={handleInvite} disabled={inviteLoading}>
+              <Button onClick={handleInvite} disabled={inviteLoading} data-testid="invite-submit-button">
                 {inviteLoading ? "发送中..." : "邀请用户"}
               </Button>
             </div>
@@ -242,7 +265,7 @@ export default function UsersPage() {
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg-grid-cols-3 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((u) => (
             <Card key={u.id}>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -251,11 +274,30 @@ export default function UsersPage() {
                   <CardDescription className="line-clamp-2">{u.email || "无邮箱"}</CardDescription>
                 </div>
                 {meRoles.includes("ROLE_ADMIN") && (
-                  <Checkbox
-                    checked={selectedIds.includes(u.id)}
-                    onChange={() => toggleSelectUser(u.id)}
-                    aria-label="选择用户"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedIds.includes(u.id)}
+                      onChange={() => toggleSelectUser(u.id)}
+                      aria-label="选择用户"
+                      data-testid={`user-select-${u.id}`}
+                    />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" disabled={actionLoadingId === u.id} data-testid={`user-actions-${u.id}`}>操作</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem disabled={actionLoadingId === u.id} onClick={() => { setRoleEditUserId(u.id); setRoleEditRoles((u.roles || []).map((r) => r.name)); }} data-testid={`user-action-edit-roles-${u.id}`}>
+                          编辑角色…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={actionLoadingId === u.id} onClick={() => { setPasswordEditUserId(u.id); setPasswordEditNew(""); setPasswordEditConfirm(""); setPasswordEditError(null); }} data-testid={`user-action-edit-password-${u.id}`}>
+                          修改密码…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={actionLoadingId === u.id} className="text-red-600 focus:text-red-600" onClick={() => setDeleteConfirmUserId(u.id)} data-testid={`user-action-delete-${u.id}`}>
+                          删除用户
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 )}
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
@@ -269,13 +311,14 @@ export default function UsersPage() {
                       size="sm"
                       disabled={resetLoadingId === u.id}
                       onClick={() => handleResetPassword(u)}
+                      data-testid={`user-reset-${u.id}`}
                     >
                       {resetLoadingId === u.id ? "发送中..." : "重置密码"}
                     </Button>
                   )}
                 </div>
                 {toastMsg && (
-                  <div className="mt-2 text-xs text-muted-foreground">{toastMsg}</div>
+                  <div className="mt-2 text-xs text-muted-foreground" data-testid="users-toast-msg">{toastMsg}</div>
                 )}
               </CardContent>
             </Card>
@@ -301,17 +344,136 @@ export default function UsersPage() {
                     <Checkbox
                       checked={batchRoles.includes(r)}
                       onChange={() => toggleBatchRole(r)}
+                      data-testid={`batch-role-${r}`}
                     />
                     <span>{r}</span>
                   </label>
                 ))}
               </div>
-              <Button onClick={handleBatchAssign} disabled={batchLoading || selectedIds.length === 0}>
+              <Button onClick={handleBatchAssign} disabled={batchLoading || selectedIds.length === 0} data-testid="batch-assign-submit-button">
                 {batchLoading ? "提交中..." : `为 ${selectedIds.length} 个用户赋予角色`}
               </Button>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* 编辑角色对话框 */}
+      {roleEditUserId !== null && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-background border rounded-lg shadow-lg w-[90%] max-w-sm">
+            <div className="p-4 border-b">
+              <div className="text-lg font-semibold">编辑角色</div>
+              <div className="text-sm text-muted-foreground mt-1">为用户 ID {roleEditUserId} 设置角色</div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                {allRoles.map((r) => (
+                  <label key={r} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={roleEditRoles.includes(r)} onChange={() => setRoleEditRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]))} data-testid={`role-edit-role-${r}`} />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setRoleEditUserId(null); setRoleEditRoles([]); }} data-testid="role-edit-cancel-button">取消</Button>
+                <Button disabled={actionLoadingId === roleEditUserId} onClick={async () => {
+                  if (!roleEditUserId) return;
+                  try {
+                    setActionLoadingId(roleEditUserId);
+                    await putJSON<{ message?: string }>(`/api/users/${roleEditUserId}/roles`, { roles: roleEditRoles });
+                    setRoleEditUserId(null);
+                    setRoleEditRoles([]);
+                    setToastMsg("角色已更新");
+                    await fetchUsers();
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : "更新角色失败，请稍后重试";
+                    setToastMsg(msg);
+                  } finally {
+                    setActionLoadingId(null);
+                  }
+                }} data-testid="role-edit-save-button">保存</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认对话框 */}
+      {deleteConfirmUserId !== null && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-background border rounded-lg shadow-lg w-[90%] max-w-sm">
+            <div className="p-4 border-b">
+              <div className="text-lg font-semibold text-red-600">确认删除</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                将删除用户 ID {deleteConfirmUserId}（{items.find((x) => x.id === deleteConfirmUserId)?.username || ""}），此操作不可恢复。
+              </div>
+            </div>
+            <div className="p-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmUserId(null)} data-testid="delete-confirm-cancel-button">取消</Button>
+              <Button className="bg-red-600 text-white hover:bg-red-700" disabled={actionLoadingId === deleteConfirmUserId} onClick={async () => {
+                if (!deleteConfirmUserId) return;
+                try {
+                  setActionLoadingId(deleteConfirmUserId);
+                  await deleteJSON<{ message?: string }>(`/api/users/${deleteConfirmUserId}`);
+                  setDeleteConfirmUserId(null);
+                  setToastMsg("用户已删除");
+                  await fetchUsers();
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : "删除失败，请稍后重试";
+                  setToastMsg(msg);
+                } finally {
+                  setActionLoadingId(null);
+                }
+              }} data-testid="delete-confirm-ok-button">确定删除</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 管理员修改密码对话框 */}
+      {passwordEditUserId !== null && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-background border rounded-lg shadow-lg w-[90%] max-w-sm">
+            <div className="p-4 border-b">
+              <div className="text-lg font-semibold">修改密码</div>
+              <div className="text-sm text-muted-foreground mt-1">为用户 ID {passwordEditUserId} 设置新密码</div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm">新密码</label>
+                <Input type="password" value={passwordEditNew} onChange={(e) => setPasswordEditNew(e.target.value)} placeholder="请输入新密码" data-testid="password-edit-new-input" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm">确认新密码</label>
+                <Input type="password" value={passwordEditConfirm} onChange={(e) => setPasswordEditConfirm(e.target.value)} placeholder="再次输入新密码" data-testid="password-edit-confirm-input" />
+              </div>
+              {passwordEditError && <div className="text-xs text-red-600">{passwordEditError}</div>}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setPasswordEditUserId(null); setPasswordEditNew(""); setPasswordEditConfirm(""); setPasswordEditError(null); }} data-testid="password-edit-cancel-button">取消</Button>
+                <Button disabled={actionLoadingId === passwordEditUserId} onClick={async () => {
+                  if (!passwordEditUserId) return;
+                  if (passwordEditNew.length < 8) { setPasswordEditError("密码长度至少 8 位"); return; }
+                  if (passwordEditNew !== passwordEditConfirm) { setPasswordEditError("两次输入的密码不一致"); return; }
+                  try {
+                    setActionLoadingId(passwordEditUserId);
+                    setPasswordEditError(null);
+                    await putJSON<{ message?: string }>(`/api/users/${passwordEditUserId}/password`, { newPassword: passwordEditNew });
+                    setPasswordEditUserId(null);
+                    setPasswordEditNew("");
+                    setPasswordEditConfirm("");
+                    setToastMsg("密码已更新");
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : "修改密码失败，请稍后重试";
+                    setPasswordEditError(msg);
+                  } finally {
+                    setActionLoadingId(null);
+                  }
+                }} data-testid="password-edit-save-button">保存</Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

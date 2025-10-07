@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import "@mdxeditor/editor/style.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
+import rehypeHighlight from "rehype-highlight";
+import type { MDXEditorProps } from "@mdxeditor/editor";
+import { headingsPlugin, listsPlugin, quotePlugin, linkPlugin, imagePlugin, tablePlugin, codeBlockPlugin, markdownShortcutPlugin } from "@mdxeditor/editor";
+
+const MDXEditorLazy = dynamic<MDXEditorProps>(() => import("@mdxeditor/editor").then((m) => m.MDXEditor), { ssr: false });
 
 interface DocumentDetail {
   id: number;
@@ -28,6 +38,28 @@ export default function DocumentEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
+
+  const canEdit = useMemo(() => roles.includes("ROLE_ADMIN") || roles.includes("ROLE_EDITOR"), [roles]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch("/api/auth/me");
+        const data = await resp.json().catch(() => ({}));
+        const rs: string[] = Array.isArray(data?.roles) ? data.roles : [];
+        setRoles(rs);
+        if (rs.length === 0) {
+          // 未登录兜底由 middleware 处理
+        } else if (!rs.includes("ROLE_ADMIN") && !rs.includes("ROLE_EDITOR")) {
+          setError("无权限编辑此文档");
+          router.replace(`/admin/documents/${id}`);
+        }
+      } catch {
+        setRoles([]);
+      }
+    })();
+  }, [id, router]);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -79,6 +111,16 @@ export default function DocumentEditPage() {
     }
   };
 
+  const imageUploadHandler = useCallback(async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append("file", file);
+    if (id) form.append("documentId", String(id));
+    const resp = await fetch("/api/editor/upload/media", { method: "POST", body: form });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(data?.message || "上传失败");
+    return data?.url || data?.path || data?.location || "";
+  }, [id]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -89,7 +131,7 @@ export default function DocumentEditPage() {
       {loading && <div className="text-sm text-muted-foreground">加载中...</div>}
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
-      {!loading && !error && (
+      {!loading && !error && canEdit && (
         <Card>
           <CardHeader>
             <CardTitle>基本信息</CardTitle>
@@ -109,9 +151,24 @@ export default function DocumentEditPage() {
                 <label className="text-sm font-medium">分类ID</label>
                 <Input type="number" value={categoryId as number} onChange={(e) => setCategoryId(e.target.value === "" ? "" : Number(e.target.value))} />
               </div>
-              <div>
-                <label className="text-sm font-medium">内容</label>
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={8} />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">内容（MDXEditor）</label>
+                <div className="border rounded-md">
+                  <MDXEditorLazy
+                    markdown={content}
+                    onChange={setContent}
+                    plugins={[
+                      headingsPlugin(),
+                      listsPlugin(),
+                      quotePlugin(),
+                      linkPlugin(),
+                      tablePlugin(),
+                      codeBlockPlugin({}),
+                      imagePlugin({ imageUploadHandler }),
+                      markdownShortcutPlugin(),
+                    ]}
+                  />
+                </div>
               </div>
               {message && <div className="text-green-600 text-sm">{message}</div>}
               {error && <div className="text-red-500 text-sm">{error}</div>}
@@ -120,6 +177,22 @@ export default function DocumentEditPage() {
                 <Button type="button" variant="outline" onClick={() => router.push("/admin/documents")}>取消</Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && (
+        <Card>
+          <CardHeader>
+            <CardTitle>实时预览</CardTitle>
+            <CardDescription>支持 GFM（表格、任务列表）与代码高亮，已启用 sanitize</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="prose max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize, rehypeHighlight]}>
+                {content || "暂无内容"}
+              </ReactMarkdown>
+            </div>
           </CardContent>
         </Card>
       )}

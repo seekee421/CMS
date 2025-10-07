@@ -28,6 +28,16 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "GET", headers, next: { revalidate: 0 } });
     const data = await resp.json().catch(() => null);
     if (resp.ok) return NextResponse.json(data ?? {}, { status: 200 });
+    if (resp.status === 403) {
+      return NextResponse.json(
+        {
+          message: data?.message || "权限不足：需要 DOC:VIEW:DETAIL。请联系管理员为你的角色分配该权限。",
+          requiredPermission: "DOC:VIEW:DETAIL",
+          code: 403,
+        },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ message: data?.message || "请求失败" }, { status: resp.status || 500 });
   } catch (e) {
     return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
@@ -44,6 +54,16 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "PUT", headers, body: JSON.stringify(body ?? {}) });
     const data = await resp.json().catch(() => null);
     if (resp.ok) return NextResponse.json(data ?? {}, { status: 200 });
+    if (resp.status === 403) {
+      return NextResponse.json(
+        {
+          message: data?.message || "权限不足：需要 DOC:EDIT。请联系管理员为你的角色分配该权限。",
+          requiredPermission: "DOC:EDIT",
+          code: 403,
+        },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ message: data?.message || "更新失败" }, { status: resp.status || 500 });
   } catch (e) {
     return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
@@ -59,6 +79,16 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     const resp = await fetch(`${apiBase}/api/documents/${id}`, { method: "DELETE", headers });
     if (resp.ok) return NextResponse.json({ success: true }, { status: 200 });
     const data = await resp.json().catch(() => null);
+    if (resp.status === 403) {
+      return NextResponse.json(
+        {
+          message: data?.message || "权限不足：需要 DOC:DELETE。请联系管理员为你的角色分配该权限。",
+          requiredPermission: "DOC:DELETE",
+          code: 403,
+        },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ message: data?.message || "删除失败" }, { status: resp.status || 500 });
   } catch (e) {
     return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });

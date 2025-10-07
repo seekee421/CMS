@@ -32,7 +32,20 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
     const body = await req.text();
     const resp = await fetch(`${apiBase}/api/users/${id}/roles`, { method: "PUT", headers, body });
     const data = await resp.json().catch(() => null);
-    return NextResponse.json(data ?? {}, { status: resp.status || 500 });
+    if (resp.ok) {
+      return NextResponse.json(data ?? { success: true }, { status: 200 });
+    }
+    if (resp.status === 403) {
+      return NextResponse.json(
+        {
+          message: data?.message || "权限不足：需要 USER:ROLE:ASSIGN。请联系管理员为你的角色分配该权限。",
+          requiredPermission: "USER:ROLE:ASSIGN",
+          code: 403,
+        },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ message: data?.message || "请求失败" }, { status: resp.status || 500 });
   } catch (e) {
     return NextResponse.json({ message: "网络错误", error: (e as Error).message }, { status: 502 });
   }

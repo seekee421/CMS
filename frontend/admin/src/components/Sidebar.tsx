@@ -58,7 +58,7 @@ export default function Sidebar({
           {visibleGroups.map((g) => {
             const isOpen = !!expanded[g.label];
             return (
-              <div key={g.label} className="space-y-2">
+              <div key={g.label} className="space-y-2" data-testid={`menu-group-${g.label}`}>
                 <div className="flex items-center justify-between gap-2">
                   {/* 标题点击跳默认页 */}
                   <Link className="text-base font-medium hover:text-foreground" href={g.defaultHref}>
@@ -70,12 +70,13 @@ export default function Sidebar({
                     size="icon"
                     onClick={() => toggle(g.label)}
                     aria-label={isOpen ? "折叠" : "展开"}
+                    data-testid={`menu-toggle-${g.label}`}
                   >
                     {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </Button>
                 </div>
                 {isOpen && (
-                  <div className="pl-2 flex flex-col gap-1">
+                  <div className="pl-2 flex flex-col gap-1" data-testid={`menu-children-${g.label}`}>
                     {g.children.map((c) => (
                       <Link
                         key={c.href}
